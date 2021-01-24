@@ -17,6 +17,7 @@ namespace TodoTree
             todos = new List<Todo>(items);
         }
 
+
         public void Add(Todo todo)
         {
             todos.Add(todo);
@@ -64,6 +65,11 @@ namespace TodoTree
         public TimeSpan GetEstimateTime()
         {
             return todos.Aggregate(TimeSpan.Zero, (span, todo) => span + todo.EstimateTime);
+        }
+        
+        public TimeSpan GetElapsedTime()
+        {
+            return todos.Aggregate(TimeSpan.Zero, (span, todo) => span + todo.ElapsedTime);
         }
 
         public bool GetIsRunning()

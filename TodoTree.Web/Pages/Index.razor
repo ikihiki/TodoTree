@@ -1,7 +1,144 @@
 ﻿@page "/"
 
-<h1>Hello, world!</h1>
+@using System.Timers
+@inject TodoRepository TodoRepository
 
-Welcome to your new app.
+<h1>Weather forecast</h1>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+<p>This component demonstrates fetching data from a service.</p>
+
+@if (todos == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div>
+        <RadzenButton Icon="add_task" @onclick="Add" />
+    </div>
+    <div>
+        <RadzenTree Data="todos" >
+            <RadzenTreeLevel TextProperty="@nameof(Todo.Name)" ChildrenProperty="@nameof(Todo.Children)" HasChildren="@(e => (e as Todo).Children?.Any()??false)">
+                <Template>
+                    <div>
+                        @{
+                            var todo = (context.Value as Todo);
+                        }
+                        @if (!todo.HasChildren)
+                        {
+                            <span style="padding-left: 24px;"></span>
+                        }
+
+
+                        @if (todo.IsRunning)
+                        {
+                            <RadzenButton Disabled="todo.Compleated" Icon="pause" Click="() => Stop(todo)" />
+
+                        }
+                        else
+                        {
+                            <RadzenButton Disabled="todo.Compleated" Icon="play_arrow" Click="() => Start(todo)" />
+                        }
+                        @if (todo.Compleated)
+                        {
+                            <RadzenButton Icon="check" Click="() => UnComplete(todo)" />
+                        }
+                        else
+                        {
+                            <RadzenButton Icon="more_horiz" Click="() => Complete(todo)" />
+                        }
+                        <RadzenTextBox @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
+                        <RadzenDatePicker Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true" ShowTime="true" Value="DateTime.Today + todo.EstimateTime" Change="(datetime) => ChangeEstimateTime(todo, datetime)"></RadzenDatePicker>
+                        <span>@todo.RemainingTime.ToString(@"hh\:mm\:ss")</span>
+                        <RadzenButton Icon="delete" Click="() => Delete(todo)" />
+                        <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
+                        <RadzenButton Icon="add_task" Click="() => AddChild(todo)" />
+                    </div>
+                </Template>
+            </RadzenTreeLevel>
+        </RadzenTree>
+    </div>
+}
+
+@code{
+    private Todo[] todos;
+    private Timer timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        todos = TodoRepository.GetTopTodo().ToArray();
+        timer = new Timer(1000);
+        timer.AutoReset = true;
+        timer.Elapsed += async (sender, args) => await InvokeAsync(() => StateHasChanged());
+        timer.Start();
+    }
+
+    private void Add()
+    {
+        TodoRepository.AddOrUpdate(new Todo("TodoItem", TimeSpan.Zero, Enumerable.Empty<TimeRecord>()));
+        todos = TodoRepository.GetTopTodo().ToArray();
+    }
+
+    private void ChangeName(Todo todo, string name)
+    {
+        TodoRepository.AddOrUpdate(todo);
+    }
+
+    public void ChangeEstimateTime(Todo todo, DateTime? dateTime)
+    {
+        if (!todo.HasChildren)
+        {
+            todo.EstimateTime = dateTime?.TimeOfDay ?? TimeSpan.Zero;
+            TodoRepository.AddOrUpdate(todo);
+        }
+    }
+
+    private void Start(Todo todo)
+    {
+        todo.Start();
+        TodoRepository.AddOrUpdate(todo);
+    }
+
+    private void Stop(Todo todo)
+    {
+        todo.Stop();
+        TodoRepository.AddOrUpdate(todo);
+    }
+
+    private void Complete(Todo todo)
+    {
+        todo.Complete();
+        TodoRepository.AddOrUpdate(todo);
+    }
+
+    private void UnComplete(Todo todo)
+    {
+        todo.UnComplete();
+        TodoRepository.AddOrUpdate(todo);
+
+    }
+
+    protected void AddChild(Todo todo)
+    {
+        todo.AddChild();
+        TodoRepository.AddOrUpdate(todo);
+        todos = TodoRepository.GetTopTodo().ToArray();
+
+    }
+
+    private void DeleteAllChildren(Todo todo)
+    {
+        todo.DeleteAllChildren();
+        TodoRepository.AddOrUpdate(todo);
+        todos = TodoRepository.GetTopTodo().ToArray();
+
+    }
+
+    private void Delete(Todo todo)
+    {
+        TodoRepository.Delete(todo);
+        todos = TodoRepository.GetTopTodo().ToArray();
+
+    }
+
+}

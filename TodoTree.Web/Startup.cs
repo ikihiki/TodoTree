@@ -8,7 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using TodoTree.Web.Data;
 
 namespace TodoTree.Web
 {
@@ -27,7 +26,6 @@ namespace TodoTree.Web
         {
             services.AddRazorPages();
             services.AddServerSideBlazor();
-            services.AddSingleton<WeatherForecastService>();
             services.AddSingleton<TodoRepository>();
         }
 

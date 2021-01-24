@@ -14,7 +14,7 @@ namespace TodoTree
             get => todoCollection?.GetEstimateTime() ?? estimateTime;
             set => estimateTime = value;
         }
-        public TimeSpan ElapsedTime => todoCollection?.GetEstimateTime() ?? timeRecords.GetEstimateTime();
+        public TimeSpan ElapsedTime => todoCollection?.GetElapsedTime() ?? timeRecords.GetEstimateTime();
         public TimeSpan RemainingTime => EstimateTime - ElapsedTime;
         private bool compleated;
 
