@@ -14,55 +14,66 @@
 else
 {
     <div>
-        <RadzenButton Icon="add_task" @onclick="Add" />
+        <RadzenButton Icon="add_task" Click="e=>Add()" />
+        <RadzenCheckBox TValue="bool" @bind-Value="showCompleted" />完了済みを表示
     </div>
     <div>
-        <RadzenTree Data="todos" >
-            <RadzenTreeLevel TextProperty="@nameof(Todo.Name)" ChildrenProperty="@nameof(Todo.Children)" HasChildren="@(e => (e as Todo).Children?.Any()??false)">
+        <RadzenTree Data="showTodo">
+            <RadzenTreeLevel TextProperty="@nameof(Todo.Name)"
+                ChildrenProperty="@(showCompleted?nameof(Todo.Children):nameof(Todo.UncompletedChildren))"
+                HasChildren="@(e => ((e as Todo).Children?.Any()??false))">
                 <Template>
-                    <div>
-                        @{
-                            var todo = (context.Value as Todo);
-                        }
-                        @if (!todo.HasChildren)
-                        {
-                            <span style="padding-left: 24px;"></span>
-                        }
+                    @{
+                    var todo = (context.Value as Todo);
+                }
+
+                <div>
+
+                    @if (!todo.HasChildren)
+                    {
+                        <span style="padding-left: 24px;"></span>
+                    }
 
 
-                        @if (todo.IsRunning)
-                        {
-                            <RadzenButton Disabled="todo.Compleated" Icon="pause" Click="() => Stop(todo)" />
+                    @if (todo.IsRunning)
+                    {
+                        <RadzenButton Disabled="todo.Compleated" Icon="pause" Click="() => Stop(todo)" />
+                    }
+                    else
+                    {
+                        <RadzenButton Disabled="todo.Compleated" Icon="play_arrow" Click="() => Start(todo)" />
+                    }
+                    @if (todo.Compleated)
+                    {
+                        <RadzenButton Icon="check" Click="() => UnComplete(todo)" />
+                    }
+                    else
+                    {
+                        <RadzenButton Icon="more_horiz" Click="() => Complete(todo)" />
+                    }
+                    <RadzenTextBox @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
+                    <RadzenDatePicker Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true"
+                        ShowTime="true" Value="DateTime.Today + todo.EstimateTime"
+                        Change="(datetime) => ChangeEstimateTime(todo, datetime)"></RadzenDatePicker>
+                    <span>@todo.RemainingTime.ToString(@"hh\:mm\:ss")</span>
+                    <RadzenButton Icon="delete" Click="() => Delete(todo)" />
+                    <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
+                    <RadzenButton Icon="add_task" Click="() => AddChild(todo)" />
+                </div>
 
-                        }
-                        else
-                        {
-                            <RadzenButton Disabled="todo.Compleated" Icon="play_arrow" Click="() => Start(todo)" />
-                        }
-                        @if (todo.Compleated)
-                        {
-                            <RadzenButton Icon="check" Click="() => UnComplete(todo)" />
-                        }
-                        else
-                        {
-                            <RadzenButton Icon="more_horiz" Click="() => Complete(todo)" />
-                        }
-                        <RadzenTextBox @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
-                        <RadzenDatePicker Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true" ShowTime="true" Value="DateTime.Today + todo.EstimateTime" Change="(datetime) => ChangeEstimateTime(todo, datetime)"></RadzenDatePicker>
-                        <span>@todo.RemainingTime.ToString(@"hh\:mm\:ss")</span>
-                        <RadzenButton Icon="delete" Click="() => Delete(todo)" />
-                        <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
-                        <RadzenButton Icon="add_task" Click="() => AddChild(todo)" />
-                    </div>
-                </Template>
-            </RadzenTreeLevel>
-        </RadzenTree>
-    </div>
+            </Template>
+        </RadzenTreeLevel>
+    </RadzenTree>
+</div>
 }
 
 @code{
     private Todo[] todos;
     private Timer timer;
+
+    private IEnumerable<Todo> showTodo => showCompleted ? todos : todos?.Where(todo => !todo.Compleated);
+
+    private bool showCompleted;
 
     protected override async Task OnInitializedAsync()
     {
@@ -71,6 +82,11 @@ else
         timer.AutoReset = true;
         timer.Elapsed += async (sender, args) => await InvokeAsync(() => StateHasChanged());
         timer.Start();
+    }
+
+    private bool CheckShow(Todo todo)
+    {
+        return showCompleted || !todo.Compleated;
     }
 
     private void Add()

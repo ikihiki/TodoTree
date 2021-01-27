@@ -25,6 +25,7 @@ namespace TodoTree
         }
         private TodoCollection todoCollection;
         public IEnumerable<Todo> Children => todoCollection?.Todos;
+        public IEnumerable<Todo> UncompletedChildren => Children?.Where(todo => !todo.Compleated);
 
         private TimeRecordCollection timeRecords;
         public IEnumerable<TimeRecord> TimeRecords => timeRecords?.TimeRecords;
