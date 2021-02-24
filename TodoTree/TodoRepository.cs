@@ -74,18 +74,18 @@ namespace TodoTree
 
             if (dto.Childrens == null)
             {
-                return new Todo(dto.Name, dto.EstimateTime, dto.TimeRecords) { Compleated = dto.Completed, Id = dto.Id.ToString(), IsChild = dto.IsChild};
+                return new Todo(dto.Name, dto.EstimateTime, dto.TimeRecords) { Compleated = dto.Completed, Id = dto.Id.ToString(), IsChild = dto.IsChild };
             }
             else
             {
-                return new Todo(dto.Name, dto.Childrens.Select(id => GeTodoById(id)).Where(todo => todo != null)) { Id = dto.Id.ToString(), IsChild = dto.IsChild};
+                return new Todo(dto.Name, dto.Childrens.Select(id => GeTodoById(id)).Where(todo => todo != null)) { Id = dto.Id.ToString(), IsChild = dto.IsChild };
             }
         }
 
         public IEnumerable<Todo> GetTopTodo()
         {
             var todos = db.GetCollection<TodoDto>("todos");
-            return todos.Query().Where(todo=>!todo.IsChild).Select(todo => todo.Id).ToEnumerable().Select(id => GeTodoById(id));
+            return todos.Query().Where(todo => !todo.IsChild).Select(todo => todo.Id).ToEnumerable().Select(id => GeTodoById(id));
         }
 
         public IEnumerable<Todo> GetAllTodo()
@@ -97,7 +97,7 @@ namespace TodoTree
         public void Delete(Todo todo)
         {
             var todos = db.GetCollection<TodoDto>("todos");
-            todos.Delete(todo.Id);
+            var r = todos.Delete(new ObjectId(todo.Id));
         }
     }
 }

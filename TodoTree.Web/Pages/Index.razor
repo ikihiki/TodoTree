@@ -3,10 +3,6 @@
 @using System.Timers
 @inject TodoRepository TodoRepository
 
-<h1>Weather forecast</h1>
-
-<p>This component demonstrates fetching data from a service.</p>
-
 @if (todos == null)
 {
     <p><em>Loading...</em></p>
@@ -18,7 +14,7 @@ else
         <RadzenCheckBox TValue="bool" @bind-Value="showCompleted" />完了済みを表示
     </div>
     <div>
-        <RadzenTree Data="showTodo">
+        <RadzenTree Style="width: 100%" Data="showTodo">
             <RadzenTreeLevel TextProperty="@nameof(Todo.Name)"
                 ChildrenProperty="@(showCompleted?nameof(Todo.Children):nameof(Todo.UncompletedChildren))"
                 HasChildren="@(e => ((e as Todo).Children?.Any()??false))">
@@ -27,11 +23,11 @@ else
                     var todo = (context.Value as Todo);
                 }
 
-                <div>
+                <div class="form">
 
                     @if (!todo.HasChildren)
                     {
-                        <span style="padding-left: 24px;"></span>
+                        <div class="head-padding"></div>
                     }
 
 
@@ -51,10 +47,16 @@ else
                     {
                         <RadzenButton Icon="more_horiz" Click="() => Complete(todo)" />
                     }
-                    <RadzenTextBox @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
-                    <RadzenDatePicker Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true"
+                    <div class="name">
+                                            <RadzenTextBox Style="width: 100%" @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
+
+                    </div>
+                        <div class="estimate-time">
+                                                <RadzenDatePicker  Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true"
                         ShowTime="true" Value="DateTime.Today + todo.EstimateTime"
                         Change="(datetime) => ChangeEstimateTime(todo, datetime)"></RadzenDatePicker>
+
+                        </div>
                     <span>@todo.RemainingTime.ToString(@"hh\:mm\:ss")</span>
                     <RadzenButton Icon="delete" Click="() => Delete(todo)" />
                     <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
