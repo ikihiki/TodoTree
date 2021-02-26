@@ -47,7 +47,7 @@ namespace TodoTree
         {
             var now = DateTime.Now;
             return this.timeRecords.Aggregate(TimeSpan.Zero,
-                (total, record) => total + record.EstimateTime ?? now - record.StartDateTime);
+                (total, record) => total + record.EstimateTime ?? total + (now - record.StartDateTime));
         }
     }
 }
