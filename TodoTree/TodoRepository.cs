@@ -63,6 +63,10 @@ namespace TodoTree
             return todos.Query().ToEnumerable();
         }
 
+        public Todo GeTodoById(string id){
+            return GeTodoById(new ObjectId(id));
+        }
+
         public Todo GeTodoById(ObjectId id)
         {
             var todos = db.GetCollection<TodoDto>("todos");
@@ -97,6 +101,7 @@ namespace TodoTree
         public void Delete(Todo todo)
         {
             var todos = db.GetCollection<TodoDto>("todos");
+
             var r = todos.Delete(new ObjectId(todo.Id));
         }
     }

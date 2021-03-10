@@ -151,5 +151,9 @@ namespace TodoTree
             timeRecords = new TimeRecordCollection();
             todoCollection = null;
         }
+
+        public void RenewTimeRecords(IEnumerable<TimeRecord> timeRecords){
+            this.timeRecords = new TimeRecordCollection(timeRecords);
+        }
     }
 }

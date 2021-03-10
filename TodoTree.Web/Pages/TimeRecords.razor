@@ -1,0 +1,56 @@
+@page "/timerecords/{TodoId}"
+
+@inject TodoRepository TodoRepository
+@inject Radzen.DialogService dialogService
+
+<h3>@TodoId</h3>
+
+@if (todo == null)
+{
+    <div>not found</div>
+} else if(timeRecords == null){
+    <div> This todo has childres </div>
+}else{
+
+
+<RadzenButton Icon="add_task" Click="e=>Add()" />
+@foreach (var record in timeRecords)
+{
+    <div>                       
+        <RadzenDatePicker TValue="DateTime?" 
+            ShowTime="true" Value="record.StartDateTime"
+            Change="(datetime) =>{if(datetime !=null){record.StartDateTime = datetime.Value;}}" />
+        <span>  ~  </span>
+        <RadzenDatePicker TValue="DateTime?" 
+            ShowTime="true" Value="record.EndDateTime"
+            Change="(datetime) =>record.EndDateTime = datetime" />
+    </div>
+}
+    <RadzenButton Text="OK"></RadzenButton>
+    <RadzenButton Text="Cancel" Click="()=>dialogService.Close()"></RadzenButton>
+}
+@code {
+    [Parameter] public string TodoId { get; set; }
+
+    Todo todo;
+    List<TimeRecord> timeRecords;
+
+    protected override void OnInitialized()
+    {
+        todo = TodoRepository.GeTodoById(TodoId);
+        if(todo != null && todo.TimeRecords != null){
+            timeRecords = new List<TimeRecord>(todo.TimeRecords);
+        }
+        
+    }
+
+    private void Add(){
+        timeRecords.Add(new TimeRecord{StartDateTime=DateTime.Now, EndDateTime=DateTime.Now});
+    }
+
+    private void Ok(){
+        todo.RenewTimeRecords(timeRecords);
+        TodoRepository.AddOrUpdate(todo);
+        dialogService.Close();
+    }
+}

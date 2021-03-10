@@ -2,6 +2,7 @@
 
 @using System.Timers
 @inject TodoRepository TodoRepository
+@inject DialogService DialogService
 
 @if (todos == null)
 {
@@ -55,6 +56,8 @@ else
                     } else {
                         <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
                     }
+
+                    <RadzenButton Icon="access_time" Click="() => OpenTimeRecords(todo)" />
                 </div>
 
             </Template>
@@ -151,6 +154,12 @@ else
         TodoRepository.Delete(todo);
         todos = TodoRepository.GetTopTodo().ToArray();
 
+    }
+
+    private void OpenTimeRecords(Todo todo){
+        DialogService.Open<TimeRecords>($"Time Record [{todo.Name}]",
+                        new Dictionary<string, object>() { { "TodoId", todo.Id } },
+                        new DialogOptions(){ Width = "700px", Height = "530px" });
     }
 
 }

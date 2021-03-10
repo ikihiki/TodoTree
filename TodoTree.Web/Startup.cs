@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ElectronNET.API;
+using Radzen;
 
 namespace TodoTree.Web
 {
@@ -28,6 +29,7 @@ namespace TodoTree.Web
             services.AddRazorPages();
             services.AddServerSideBlazor();
             services.AddSingleton<TodoRepository>();
+            services.AddScoped<DialogService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
