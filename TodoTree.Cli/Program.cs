@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using LiteDB;
+using Terminal.Gui;
 
 namespace TodoTree.Cli
 {
@@ -8,13 +9,28 @@ namespace TodoTree.Cli
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
             var repository = new TodoRepository();
-            repository.Add(new TodoDto(){Childrens = new List<ObjectId>(), Completed = false, Name = "Test", EstimateTime = TimeSpan.FromMinutes(1), Id = ObjectId.NewObjectId()});
-            foreach (var todoDto in repository.GetAllTodo())
+            repository.Add(new TodoDto() { Childrens = new List<ObjectId>(), Completed = false, Name = "Test", EstimateTime = TimeSpan.FromMinutes(1), Id = ObjectId.NewObjectId() });
+
+            Application.Init();
+            var top = App1.Body("tst",repository.GetAllTodo());
+            var state = top.Create();
+            Application.Top.Add(state.GetView());
+
+            void OnStateOnRequestUpdate()
             {
-                Console.WriteLine($"id: {todoDto.Id}, name: {todoDto.Name}, estimateTime: {todoDto.EstimateTime}, completed: {todoDto.Compleated}");
+                top.Update(state);
+                Application.Refresh();
             }
-        }
+
+            state.RequestUpdate += OnStateOnRequestUpdate;
+            // Create a timer with a two second interval.
+            var aTimer = new System.Timers.Timer(200);
+            // Hook up the Elapsed event for the timer. 
+            aTimer.Elapsed += (sender, eventArgs) => OnStateOnRequestUpdate();
+            aTimer.AutoReset = true;
+            aTimer.Enabled = true;
+            Application.Run();
+    }
     }
 }
