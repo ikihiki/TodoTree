@@ -25,7 +25,7 @@ namespace TodoTree.Cli
 
             state.RequestUpdate += OnStateOnRequestUpdate;
             // Create a timer with a two second interval.
-            var aTimer = new System.Timers.Timer(200);
+            var aTimer = new System.Timers.Timer(1000);
             // Hook up the Elapsed event for the timer. 
             aTimer.Elapsed += (sender, eventArgs) => OnStateOnRequestUpdate();
             aTimer.AutoReset = true;

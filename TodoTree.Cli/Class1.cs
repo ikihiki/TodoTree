@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using NStack;
 using Terminal.Gui;
 using static TodoTree.Cli.UI;
 
@@ -15,40 +16,50 @@ namespace TodoTree.Cli
             return CreateElement((state) =>
             {
                 var (count, setCount) = state.CreateState(0);
-                return VStack(contents: new[]
+                var (showAddWindow, setShowAddWindow) = state.CreateState(false);
+                return
+                    Container(height: Dim.Fill(), width: Dim.Fill(), contents: new[]
+                    {
+                    VStack(height: Dim.Fill(), width: Dim.Fill(), contents: new[]
+                    {
+                        HStack(height:Dim.Sized(1), width:Dim.Fill(),contents:new []
+                        {
+                            Button("ルート追加", width:Dim.Sized(5), click:()=>setShowAddWindow(true)),
+                            Button($"button{count}",click: ()=> setCount(count+1)),
+                        }),
+                        TreeView(todos.ToArray(),static render =>JsonSerializer.Serialize(render),  builder, x:Pos.At(3), width:Dim.Fill(), height:Dim.Fill()),
+                    }),
+                    showAddWindow?Window(title:"追加", content: AddWindow(()=>setShowAddWindow(false)), x:Pos.At(2),y:Pos.At(2), height: Dim.Percent(90), width:Dim.Percent(90)):null
+
+                    });
+            });
+        }
+
+        public static Element AddWindow(Action close)
+        {
+            return CreateElement(state =>
+            {
+                var (title, setTitle) = state.CreateState("");
+                var (time, setTime) = state.CreateState(TimeSpan.Zero);
+                return VStack(height: Dim.Fill(), width: Dim.Fill(), contents: new[]
                 {
-                    Button(txt),
-                    Button($"button{count}",click: ()=> setCount(count+1)),
-                    TreeView(todos.ToArray(),static render =>JsonSerializer.Serialize(render),  builder, x:Pos.At(3), width:Dim.Fill(), height:Dim.Fill())
+                    Label("タイトル", height:Dim.Sized(1)),
+                    TextField(title, setTitle,height:Dim.Sized(1)),
+                    Label("想定時間", height:Dim.Sized(1)),
+                    TimeField(time, setTime,height:Dim.Sized(1)),
+                    Label($"{time} {title}",height:Dim.Sized(1)),
+                    HStack(height:Dim.Sized(1), width:Dim.Fill(),contents:new []
+                    {
+                        Button("OK", width:Dim.Sized(5), click:()=>close()),
+                        Button($"Cancel",click: ()=> close()),
+                    }),
                 });
             });
         }
     }
 
 
-    public abstract class ElementState
-    {
-        public event Action RequestUpdate;
 
-        public abstract View GetView();
-
-        protected void RiseRequestUpdate()
-        {
-            RequestUpdate?.Invoke();
-        }
-
-    }
-
-    public class ElementState<TElement, TView> : ElementState where TElement : Element where TView : View
-    {
-        public TElement Prev { get; set; }
-        public TView View { get; set; }
-
-        public override View GetView()
-        {
-            return View;
-        }
-    }
 
 
 
@@ -62,31 +73,53 @@ namespace TodoTree.Cli
             };
         }
 
-        public static Element Button(string text, Pos x = null, Pos y = null, Dim width = null, Action click = null)
+        public static Element Button(string text, Action click = null, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
         {
             return new ButtonElement()
             {
-                Text = text,
                 X = x,
                 Y = y,
                 Width = width,
+                Height = height,
+                Text = text,
                 Click = click
             };
         }
 
 
-        public static Element Container(Element[] contents)
+        public static Element Container(Element[] contents, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
         {
             return new ContainerElement()
             {
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height,
+
                 Elements = contents
             };
         }
 
-        public static Element VStack(Element[] contents)
+        public static Element VStack(Element[] contents, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
         {
             return new VStackElement()
             {
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height,
+                Elements = contents
+            };
+        }
+
+        public static Element HStack(Element[] contents, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
+        {
+            return new HStackElement()
+            {
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height,
                 Elements = contents
             };
         }
@@ -105,10 +138,116 @@ namespace TodoTree.Cli
             };
         }
 
+        public static Element Window(Element content, string title = null, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
+        {
+            return new WindowElement
+            {
+                Content = content,
+                Title = title,
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height
+            };
+        }
+
+        public static Element Label(string text, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
+        {
+            return new LabelElement()
+            {
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height,
+                Text = text,
+            };
+        }
+
+        public static Element TextField(string text, Action<string> textChanged = null, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
+        {
+            return new TextFieldElement()
+            {
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height,
+                Text = text,
+                TextChanged = textChanged
+            };
+        }
+
+        public static Element TimeField(TimeSpan time, Action<TimeSpan> timeChanged = null, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
+        {
+            return new TimeFieldElement()
+            {
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height,
+                TimeSpan = time,
+                TimeChanged = timeChanged
+            };
+        }
+
+    }
+    public abstract class ElementState
+    {
+        public event Action RequestUpdate;
+
+        public abstract View GetView();
+
+        protected void RiseRequestUpdate()
+        {
+            RequestUpdate?.Invoke();
+        }
+
     }
 
+    public class ElementState<TElement, TView> : ElementState where TElement : Element where TView : View
+    {
+        public TElement Prev { get; set; }
+        public TView View { get; set; }
+
+        public ElementState(TElement element, TView view)
+        {
+            Prev = element;
+            View = view;
+            View.X = element.X;
+            View.Y = element.Y;
+            View.Width = element.Width;
+            View.Height = element.Height;
+        }
+
+        public override View GetView()
+        {
+            return View;
+        }
+
+        public virtual bool Update(TElement element)
+        {
+            if (element.Width is not null && View.Width != element.Width)
+            {
+                View.Width = element.Width;
+            }
+            if (element.Y is not null && View.Height != element.Height)
+            {
+                View.Height = element.Height;
+            }
+            if (element.X is not null && View.X != element.X)
+            {
+                View.X = element.X;
+            }
+            if (element.Y is not null && View.Y != element.Y)
+            {
+                View.Y = element.Y;
+            }
+
+            Prev = element;
+            return true;
+        }
+    }
     public abstract class Element
-    {       
+    {
         public Dim Width { get; set; }
         public Dim Height { get; set; }
         public Pos X { get; set; }
@@ -119,56 +258,36 @@ namespace TodoTree.Cli
 
     public class ButtonElement : Element
     {
+        public class State : ElementState<ButtonElement, Button>
+        {
+            public State(ButtonElement element) : base(element, new Button(element.Text)) { }
+
+            public override bool Update(ButtonElement element)
+            {
+                if (View.Text != element.Text)
+                {
+                    View.Text = element.Text;
+                }
+
+                return base.Update(element);
+            }
+        }
+
         public string Text { get; set; }
 
         public Action Click { get; set; }
 
-
         public override ElementState Create()
         {
-            var view = new Button(Text)
-            {
-                X = X,
-                Y = Y,
-                Width = Width,
-            };
 
-            var state = new ElementState<ButtonElement, Button>
-            {
-                Prev = this,
-                View = view
-            };
-            view.Clicked += () => state.Prev.Click?.Invoke();
+            var state = new State(this);
+            state.View.Clicked += () => state.Prev.Click?.Invoke();
             return state;
         }
 
         public override bool Update(ElementState state)
         {
-            var s = state as ElementState<ButtonElement, Button>;
-            if (s is null)
-            {
-                return false;
-            }
-
-            if (s.Prev.Text != Text)
-            {
-                s.View.Text = Text;
-            }
-
-            if (s.Prev.Width != Width)
-            {
-                s.View.Width = Width;
-            }
-            if (s.Prev.X != X)
-            {
-                s.View.X = X;
-            }
-            if (s.Prev.Y != Y)
-            {
-                s.View.Y = Y;
-            }
-            s.Prev = this;
-            return true;
+            return state is State s && s.Update(this);
         }
     }
 
@@ -179,19 +298,18 @@ namespace TodoTree.Cli
         {
             public List<ElementState> States { get; } = new();
 
-            public ContainerElementState(ContainerElement element)
+            public ContainerElementState(ContainerElement element) : base(element, new View())
             {
-                Prev = element;
-                View = new View();
-                View.Height = Dim.Fill();
-                View.Width = Dim.Fill();
                 foreach (var child in element.Elements)
                 {
-                    Add(child);
+                    if (child is not null)
+                    {
+                        Add(child);
+                    }
                 }
             }
 
-            public bool Update(ContainerElement element)
+            public override bool Update(ContainerElement element)
             {
                 for (int i = 0; i < element.Elements.Length; i++)
                 {
@@ -203,17 +321,29 @@ namespace TodoTree.Cli
                     }
                     else
                     {
-                        var result = element.Elements[i].Update(States[i]);
-                        if (!result)
+                        if (i >= States.Count)
                         {
-                            View.Remove(States[i].GetView());
-                            States[i].RequestUpdate -= RiseRequestUpdate;
                             var newOne = element.Elements[i].Create();
                             View.Add(newOne.GetView());
-                            States[i] = newOne;
+                            States.Add(newOne);
                             States[i].RequestUpdate += RiseRequestUpdate;
                         }
+                        else
+                        {
+
+                            var result = element.Elements[i].Update(States[i]);
+                            if (!result)
+                            {
+                                View.Remove(States[i].GetView());
+                                States[i].RequestUpdate -= RiseRequestUpdate;
+                                var newOne = element.Elements[i].Create();
+                                View.Add(newOne.GetView());
+                                States[i] = newOne;
+                                States[i].RequestUpdate += RiseRequestUpdate;
+                            }
+                        }
                     }
+
                 }
 
                 if (element.Elements.Length < States.Count)
@@ -228,8 +358,7 @@ namespace TodoTree.Cli
                     States.RemoveRange(element.Elements.Length, States.Count - element.Elements.Length);
                 }
 
-                Prev = element;
-                return true;
+                return base.Update(element);
             }
 
 
@@ -242,7 +371,12 @@ namespace TodoTree.Cli
             }
         }
 
-        public Element[] Elements { get; set; }
+        private Element[] elements;
+        public Element[] Elements
+        {
+            get => elements;
+            set => elements = value.Where(v => v is not null).ToArray();
+        }
         public override ContainerElementState Create()
         {
             return new ContainerElementState(this);
@@ -303,6 +437,56 @@ namespace TodoTree.Cli
         }
     }
 
+    public class HStackElement : ContainerElement
+    {
+        public override ContainerElementState Create()
+        {
+            var state = base.Create();
+            View prevView = null;
+            foreach (var childState in state.States)
+            {
+                var view = childState.GetView();
+                if (prevView is not null)
+                {
+                    view.X = Pos.Right(prevView);
+                }
+
+                prevView = view;
+            }
+
+            return state;
+        }
+
+        public override bool Update(ElementState state)
+        {
+            var s = state as ContainerElementState;
+            if (s is null)
+            {
+                return false;
+            }
+
+            var result = s.Update(this);
+            if (!result)
+            {
+                return false;
+            }
+
+            View prevView = null;
+            foreach (var childState in s.States)
+            {
+                var view = childState.GetView();
+                if (prevView is not null)
+                {
+                    view.X = Pos.Right(prevView);
+                }
+
+                prevView = view;
+            }
+
+            return true;
+        }
+    }
+
     public class CustomElement : Element
     {
 
@@ -347,13 +531,21 @@ namespace TodoTree.Cli
                 else
                 {
                     var tuple = StateList[StateCallCount];
+                    StateCallCount++;
                     return ((T)tuple.Value, (Action<T>)tuple.Updater);
                 }
             }
 
             private Action<T> CreateUpdater<T>(int number)
             {
-                return value => { StateList[number].Value = value; RiseRequestUpdate(); };
+                return value =>
+                {
+                    if (!EqualityComparer<T>.Default.Equals((T) StateList[number].Value, value))
+                    {
+                        StateList[number].Value = value;
+                        RiseRequestUpdate();
+                    }
+                };
             }
 
             public CustomElementState(CustomElement element)
@@ -400,25 +592,15 @@ namespace TodoTree.Cli
         }
     }
 
-
-
     public class TreeViewElement<T> : Element where T : class
     {
-
         class State : ElementState<TreeViewElement<T>, TreeView<T>>
         {
-            public State(TreeViewElement<T> element)
+            public State(TreeViewElement<T> element) : base(element, new TreeView<T>())
             {
-                Prev = element;
-                View = new TreeView<T>()
-                {
-                    AspectGetter = element.AspectGetter,
-                    TreeBuilder = element.TreeBuilder,
-                    X = element.X,
-                    Y = element.Y,
-                    Width = element.Width,
-                    Height = element.Height
-                };
+
+                View.AspectGetter = element.AspectGetter;
+                View.TreeBuilder = element.TreeBuilder;
 
                 foreach (var value in element.Root)
                 {
@@ -426,7 +608,7 @@ namespace TodoTree.Cli
                 }
             }
 
-            internal bool Update(TreeViewElement<T> treeViewElement)
+            public override bool Update(TreeViewElement<T> treeViewElement)
             {
                 Prev = treeViewElement;
                 if (View.AspectGetter != treeViewElement.AspectGetter)
@@ -438,23 +620,7 @@ namespace TodoTree.Cli
                 {
                     View.TreeBuilder = treeViewElement.TreeBuilder;
                 }
-                if (treeViewElement.Width is not null && View.Width != treeViewElement.Width)
-                {
-                    View.Width = treeViewElement.Width;
-                }
-                if (treeViewElement.Y is not null && View.Height != treeViewElement.Height)
-                {
-                    View.Height = treeViewElement.Height;
-                }
-                if (treeViewElement.X is not null && View.X != treeViewElement.X)
-                {
-                    View.X = treeViewElement.X;
-                }
-                if (treeViewElement.Y is not null && View.Y != treeViewElement.Y)
-                {
-                    View.Y = treeViewElement.Y;
-                }
-                return true;
+                return base.Update(treeViewElement); ;
             }
         }
 
@@ -470,6 +636,158 @@ namespace TodoTree.Cli
         public override bool Update(ElementState state)
         {
             return state is TreeViewElement<T>.State s && s.Update(this);
+        }
+    }
+
+    public class WindowElement : Element
+    {
+        public class State : ElementState<WindowElement, Window>
+        {
+            public ElementState ContentState { get; set; }
+
+            public State(WindowElement element) : base(element, new Window())
+            {
+                View.Title = element.Title;
+                ContentState = element.Content.Create();
+                View.Add(ContentState.GetView());
+                ContentState.RequestUpdate += RiseRequestUpdate;
+            }
+
+            public override bool Update(WindowElement element)
+            {
+                var result = element.Content.Update(ContentState);
+                if (!result)
+                {
+                    ContentState.RequestUpdate -= RiseRequestUpdate;
+                    ContentState = element.Content.Create();
+                    View.RemoveAll();
+                    View.Add(ContentState.GetView());
+                    ContentState.RequestUpdate += RiseRequestUpdate;
+                }
+
+                if (View.Title != element.Title)
+                {
+                    View.Title = element.Title;
+                }
+                return base.Update(element);
+            }
+        }
+
+        public string Title { get; set; }
+        public Element Content { get; set; }
+
+        public override ElementState Create()
+        {
+            return new WindowElement.State(this);
+        }
+
+        public override bool Update(ElementState state)
+        {
+            return state is State s && s.Update(this);
+        }
+    }
+
+
+    public class LabelElement : Element
+    {
+        public class State : ElementState<LabelElement, Label>
+        {
+            public State(LabelElement element) : base(element, new Label(element.Text)) { }
+
+            public override bool Update(LabelElement element)
+            {
+                if (View.Text != element.Text)
+                {
+                    View.Text = element.Text;
+                }
+
+                return base.Update(element);
+            }
+        }
+
+        public string Text { get; set; }
+
+        public override ElementState Create()
+        {
+            return new State(this);
+        }
+
+        public override bool Update(ElementState state)
+        {
+            return state is State s && s.Update(this);
+        }
+    }
+
+    public class TextFieldElement : Element
+    {
+        public class State : ElementState<TextFieldElement, TextField>
+        {
+            public State(TextFieldElement element) : base(element, new TextField(element.Text))
+            {
+                View.TextChanged += (txt) => Prev.TextChanged?.Invoke(View.Text.ToString());
+            }
+
+            public override bool Update(TextFieldElement element)
+            {
+                if (!View.HasFocus && View.Text != element.Text)
+                {
+                    View.Text = element.Text;
+                }
+
+                return base.Update(element);
+            }
+        }
+
+        public string Text { get; set; }
+
+        public Action<string> TextChanged { get; set; }
+
+        public override ElementState Create()
+        {
+            return new State(this);
+        }
+
+        public override bool Update(ElementState state)
+        {
+            return state is State s && s.Update(this);
+        }
+    }
+
+    public class TimeFieldElement : Element
+    {
+        public class State : ElementState<TimeFieldElement, TimeField>
+        {
+
+
+
+            public State(TimeFieldElement element) : base(element, new TimeField(element.TimeSpan))
+            {
+                View.TimeChanged += (time) => Prev.TimeChanged?.Invoke(time.NewValue);
+            }
+
+            public override bool Update(TimeFieldElement element)
+            {
+                if (!View.HasFocus && View.Time != element.TimeSpan)
+                {
+                    View.Time = element.TimeSpan;
+                }
+
+                return base.Update(element);
+            }
+        }
+
+        public TimeSpan TimeSpan { get; set; }
+
+        public Action<TimeSpan> TimeChanged { get; set; }
+
+        public override ElementState Create()
+        {
+            return new State(this);
+        }
+
+        public override bool Update(ElementState state)
+        {
+            return state is State s && s.Update(this);
         }
     }
 }
