@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace TodoTree
@@ -154,6 +155,21 @@ namespace TodoTree
 
         public void RenewTimeRecords(IEnumerable<TimeRecord> timeRecords){
             this.timeRecords = new TimeRecordCollection(timeRecords);
+        }
+    }
+
+    public class TodoIdEqualityComparer : IEqualityComparer<Todo>
+    {
+        public static TodoIdEqualityComparer Instance = new TodoIdEqualityComparer();
+
+        public bool Equals(Todo x, Todo y)
+        {
+            return x.Id == null || y.Id == null ? x == y : x.Id == y.Id;
+        }
+
+        public int GetHashCode([DisallowNull] Todo obj)
+        {
+            return obj.Id.GetHashCode();
         }
     }
 }

@@ -12,7 +12,7 @@ namespace TodoTree.Cli
             var repository = new TodoRepository();
 
             Application.Init();
-            var top = App1.Body("tst", repository.GetAllTodo());
+            var top = App1.Body("tst", repository);
             var state = top.Create();
             Application.Top.Add(state.GetView());
 

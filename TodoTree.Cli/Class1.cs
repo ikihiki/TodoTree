@@ -10,32 +10,103 @@ namespace TodoTree.Cli
 {
     public static class App1
     {
-        public static Element Body(string txt, IEnumerable<Todo> todos)
+        public static Element Body(string txt, TodoRepository repository)
         {
-            var builder = new DelegateTreeBuilder<Todo>(static todo => todo.Children);
             return CreateElement((state) =>
             {
                 var (count, setCount) = state.CreateState(0);
                 var (showAddWindow, setShowAddWindow) = state.CreateState(false);
+                var (showAll, setShowAll) = state.CreateState(false);
+                IEnumerable<Todo> GetTodos(bool showAll)
+                {
+                    return repository.GetTopTodo().Where(todo => showAll ? true : !todo.Compleated).ToArray();
+                }
+                var (todos, setTodos) = state.CreateState(GetTodos(showAll));
+                var (selectedTodo, setSelectedTodo) = state.CreateState<Todo>(null);
+                var builder = new DelegateTreeBuilder<Todo>(todo => showAll ? todo.Children : todo.UncompletedChildren);
                 return
                     Container(height: Dim.Fill(), width: Dim.Fill(), contents: new[]
                     {
-                    VStack(height: Dim.Fill(), width: Dim.Fill(), contents: new[]
-                    {
-                        HStack(height:Dim.Sized(1), width:Dim.Fill(),contents:new []
+                        VStack(height: Dim.Fill(), width: Dim.Fill(), contents: new[]
                         {
-                            Button("ルート追加", width:Dim.Sized(5), click:()=>setShowAddWindow(true)),
-                            Button($"button{count}",click: ()=> setCount(count+1)),
-                        }),
-                        TreeView(todos.ToArray(),static render =>JsonSerializer.Serialize(render),  builder, x:Pos.At(3), width:Dim.Fill(), height:Dim.Fill()),
-                    }),
-                    showAddWindow?Window(title:"追加", content: AddWindow(()=>setShowAddWindow(false)), x:Pos.At(2),y:Pos.At(2), height: Dim.Percent(90), width:Dim.Percent(90)):null
+                            HStack(height:Dim.Sized(1), width:Dim.Fill(),contents:new []
+                            {
+                                Button("ルート追加", width:Dim.Sized(10), click:()=>setShowAddWindow(true)),
+                                Button("子追加", width:Dim.Sized(10), click:()=>setShowAddWindow(true)),
+                                Button("削除", width:Dim.Sized(10), click:()=>setShowAddWindow(true)),
+                                Button(selectedTodo?.Compleated == true ? "未完了にする": "完了にする", width:Dim.Sized(10), click:()=>
+                                {
+                                    if(selectedTodo == null)
+                                    {
+                                        return;
+                                    }
+                                    if(selectedTodo.Compleated)
+                                    {
+                                        selectedTodo.UnComplete();
+                                    }
+                                    else
+                                    {
+                                        selectedTodo.Complete();
+                                    }
+                                    repository.AddOrUpdate(selectedTodo);
+                                    setTodos(GetTodos(showAll));
+                                }),
+                                CheckBox("すべて表示", showAll, val=>
+                                {
+                                    setShowAll(val);
+                                    setTodos(GetTodos(val));
+                                }),
+                            }),
+                            TreeView(
+                                todos.ToArray(),
+                                static render =>$"{(render.IsRunning ? '▶' : '⏸')}  {(render.Compleated ? '✔' : '□')} {render.EstimateTime} - { render.RemainingTime } - { render.Name }",
+                                builder,
+                                equalityComparer: TodoIdEqualityComparer.Instance,
+                                objectActivated: (todo)=>
+                                {
+                                    if(todo.IsRunning)
+                                    {
+                                        todo.Stop();
+                                    }
+                                    else
+                                    {
+                                        todo.Start();
+                                    }
+                                    repository.AddOrUpdate(todo);
 
+                                },
+                                selected: (todo) =>
+                                {
+                                    setSelectedTodo(todo);
+                                },
+                                x:Pos.At(3),
+                                width:Dim.Fill(),
+                                height:Dim.Fill()
+                            ),
+                        }),
+                        showAddWindow?
+                            Window(
+                                title:"追加",
+                                content: AddWindow(
+                                    cancel:()=>setShowAddWindow(false),
+                                    ok:(title, time)=>
+                                    {
+                                        setShowAddWindow(false);
+                                        repository.AddOrUpdate(new Todo(title, time, Enumerable.Empty<TimeRecord>()));
+                                        setTodos(GetTodos(showAll));
+                                    }
+                                ),
+                                x:Pos.At(2),
+                                y:Pos.At(2),
+                                height: Dim.Percent(90),
+                                width:Dim.Percent(90)
+                            )
+                            :null
                     });
             });
         }
 
-        public static Element AddWindow(Action close)
+        public static Element AddWindow(Action cancel, Action<string, TimeSpan> ok)
         {
             return CreateElement(state =>
             {
@@ -50,8 +121,8 @@ namespace TodoTree.Cli
                     Label($"{time} {title}",height:Dim.Sized(1)),
                     HStack(height:Dim.Sized(1), width:Dim.Fill(),contents:new []
                     {
-                        Button("OK", width:Dim.Sized(5), click:()=>close()),
-                        Button($"Cancel",click: ()=> close()),
+                        Button("OK", width:Dim.Sized(5), click:()=>ok(title, time)),
+                        Button($"Cancel",click: ()=> cancel()),
                     }),
                 });
             });
@@ -63,7 +134,7 @@ namespace TodoTree.Cli
 
 
 
-    public static class UI
+    public static partial class UI
     {
         public static Element CreateElement(Func<CustomElement.CustomElementState, Element> func)
         {
@@ -124,20 +195,6 @@ namespace TodoTree.Cli
             };
         }
 
-        public static Element TreeView<T>(T[] root, AspectGetterDelegate<T> aspectGetter, DelegateTreeBuilder<T> treeBuilder, Pos x = null, Pos y = null, Dim width = null, Dim height = null) where T : class
-        {
-            return new TreeViewElement<T>
-            {
-                Root = root,
-                AspectGetter = aspectGetter,
-                TreeBuilder = treeBuilder,
-                X = x,
-                Y = y,
-                Width = width,
-                Height = height
-            };
-        }
-
         public static Element Window(Element content, string title = null, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
         {
             return new WindowElement
@@ -175,20 +232,6 @@ namespace TodoTree.Cli
                 TextChanged = textChanged
             };
         }
-
-        public static Element TimeField(TimeSpan time, Action<TimeSpan> timeChanged = null, Pos x = null, Pos y = null, Dim width = null, Dim height = null)
-        {
-            return new TimeFieldElement()
-            {
-                X = x,
-                Y = y,
-                Width = width,
-                Height = height,
-                TimeSpan = time,
-                TimeChanged = timeChanged
-            };
-        }
-
     }
     public abstract class ElementState
     {
@@ -540,7 +583,7 @@ namespace TodoTree.Cli
             {
                 return value =>
                 {
-                    if (!EqualityComparer<T>.Default.Equals((T) StateList[number].Value, value))
+                    if (!EqualityComparer<T>.Default.Equals((T)StateList[number].Value, value))
                     {
                         StateList[number].Value = value;
                         RiseRequestUpdate();
@@ -589,53 +632,6 @@ namespace TodoTree.Cli
         public override bool Update(ElementState state)
         {
             return state is CustomElementState s && s.Update(this);
-        }
-    }
-
-    public class TreeViewElement<T> : Element where T : class
-    {
-        class State : ElementState<TreeViewElement<T>, TreeView<T>>
-        {
-            public State(TreeViewElement<T> element) : base(element, new TreeView<T>())
-            {
-
-                View.AspectGetter = element.AspectGetter;
-                View.TreeBuilder = element.TreeBuilder;
-
-                foreach (var value in element.Root)
-                {
-                    View.AddObject(value);
-                }
-            }
-
-            public override bool Update(TreeViewElement<T> treeViewElement)
-            {
-                Prev = treeViewElement;
-                if (View.AspectGetter != treeViewElement.AspectGetter)
-                {
-                    View.AspectGetter = treeViewElement.AspectGetter;
-                }
-
-                if (View.TreeBuilder != treeViewElement.TreeBuilder)
-                {
-                    View.TreeBuilder = treeViewElement.TreeBuilder;
-                }
-                return base.Update(treeViewElement); ;
-            }
-        }
-
-        public T[] Root { get; set; }
-        public AspectGetterDelegate<T> AspectGetter { get; set; }
-        public DelegateTreeBuilder<T> TreeBuilder { get; set; }
-
-        public override ElementState Create()
-        {
-            return new State(this);
-        }
-
-        public override bool Update(ElementState state)
-        {
-            return state is TreeViewElement<T>.State s && s.Update(this);
         }
     }
 
@@ -741,44 +737,6 @@ namespace TodoTree.Cli
         public string Text { get; set; }
 
         public Action<string> TextChanged { get; set; }
-
-        public override ElementState Create()
-        {
-            return new State(this);
-        }
-
-        public override bool Update(ElementState state)
-        {
-            return state is State s && s.Update(this);
-        }
-    }
-
-    public class TimeFieldElement : Element
-    {
-        public class State : ElementState<TimeFieldElement, TimeField>
-        {
-
-
-
-            public State(TimeFieldElement element) : base(element, new TimeField(element.TimeSpan))
-            {
-                View.TimeChanged += (time) => Prev.TimeChanged?.Invoke(time.NewValue);
-            }
-
-            public override bool Update(TimeFieldElement element)
-            {
-                if (!View.HasFocus && View.Time != element.TimeSpan)
-                {
-                    View.Time = element.TimeSpan;
-                }
-
-                return base.Update(element);
-            }
-        }
-
-        public TimeSpan TimeSpan { get; set; }
-
-        public Action<TimeSpan> TimeChanged { get; set; }
 
         public override ElementState Create()
         {
