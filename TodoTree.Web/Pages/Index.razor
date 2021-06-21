@@ -13,6 +13,7 @@ else
     <div>
         <RadzenButton Icon="add_task" Click="e=>Add()" />
         <RadzenCheckBox TValue="bool" @bind-Value="showCompleted" />完了済みを表示
+        <RadzenCheckBox TValue="bool" @bind-Value="editable" />編集
     </div>
     <div>
         <RadzenTree Style="width: 100%" Data="showTodo">
@@ -30,8 +31,9 @@ else
                     {
                         <div class="head-padding"></div>
                     }
-
-                    <RadzenButton Icon="add_task" Click="() => AddChild(todo)" />
+                    @if(editable){
+                       <RadzenButton Icon="add_task" Click="() => AddChild(todo)" /> 
+                    }
                     @if (todo.IsRunning)
                     {
                         <RadzenButton Disabled="todo.Compleated" Icon="pause" Click="() => Stop(todo)" />
@@ -40,23 +42,32 @@ else
                     {
                         <RadzenButton Disabled="todo.Compleated" Icon="play_arrow" Click="() => Start(todo)" />
                     }
-                    <RadzenCheckBox @bind-value="@todo.Compleated"  TValue="bool" Change="() => ToggleComplete(todo)" />
+                    <RadzenCheckBox @bind-value="@todo.Compleated" TValue="bool" Change="(state) => ToggleComplete(state, todo)" />
                     <div class="name">
-                        <RadzenTextBox Style="width: 100%" @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
+                        @if(editable){
+                            <RadzenTextBox Style="width: 100%" @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
+                        }else{
+                            @todo.Name
+                        }
                     </div>
                     <div class="estimate-time">
-                        <RadzenDatePicker  Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true"
-                        ShowTime="true" Value="DateTime.Today + todo.EstimateTime"
-                        Change="(datetime) => ChangeEstimateTime(todo, datetime)" />
+                        @if(editable){
+                            <RadzenDatePicker  Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true"
+                            ShowTime="true" Value="DateTime.Today + todo.EstimateTime"
+                            Change="(datetime) => ChangeEstimateTime(todo, datetime)" />
+                        }else{
+                            @todo.EstimateTime.ToString(@"hh\:mm\:ss")
+                        }
                     </div>
                     <span>@todo.RemainingTime.ToString(@"hh\:mm\:ss")</span>
-                    @if (!todo.HasChildren)
-                    {
-                        <RadzenButton Icon="delete" Click="() => Delete(todo)" />
-                    } else {
-                        <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
+                    @if(editable){
+                        @if (!todo.HasChildren)
+                        {
+                            <RadzenButton Icon="delete" Click="() => Delete(todo)" />
+                        } else {
+                            <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
+                        }
                     }
-
                     <RadzenButton Icon="access_time" Click="() => OpenTimeRecords(todo)" />
                 </div>
 
@@ -73,6 +84,7 @@ else
     private IEnumerable<Todo> showTodo => showCompleted ? todos : todos?.Where(todo => !todo.Compleated);
 
     private bool showCompleted;
+    private bool editable;
 
     protected override async Task OnInitializedAsync()
     {
@@ -120,9 +132,9 @@ else
         TodoRepository.AddOrUpdate(todo);
     }
 
-    private void ToggleComplete(Todo todo){
+    private void ToggleComplete(bool state, Todo todo){
         Console.WriteLine("toggle");
-        if(todo.Compleated){
+        if(!state){
             todo.UnComplete();
             Console.WriteLine("UnComplete");
         }else{
@@ -137,8 +149,6 @@ else
     {
         todo.AddChild();
         TodoRepository.AddOrUpdate(todo);
-        todos = TodoRepository.GetTopTodo().ToArray();
-
     }
 
     private void DeleteAllChildren(Todo todo)
