@@ -19,7 +19,7 @@ namespace TodoTree.Cli
                 var (showAll, setShowAll) = state.CreateState(false);
                 IEnumerable<Todo> GetTodos(bool showAll)
                 {
-                    return repository.GetTopTodo().Where(todo => showAll ? true : !todo.Compleated).ToArray();
+                    return repository.GetTopTodo().Where(todo => showAll || !todo.Compleated).ToArray();
                 }
                 var (todos, setTodos) = state.CreateState(GetTodos(showAll));
                 var (selectedTodo, setSelectedTodo) = state.CreateState<Todo>(null);
