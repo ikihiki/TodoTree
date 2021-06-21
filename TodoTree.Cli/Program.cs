@@ -10,10 +10,9 @@ namespace TodoTree.Cli
         static void Main(string[] args)
         {
             var repository = new TodoRepository();
-            repository.Add(new TodoDto() { Childrens = new List<ObjectId>(), Completed = false, Name = "Test", EstimateTime = TimeSpan.FromMinutes(1), Id = ObjectId.NewObjectId() });
 
             Application.Init();
-            var top = App1.Body("tst",repository.GetAllTodo());
+            var top = App1.Body("tst", repository.GetAllTodo());
             var state = top.Create();
             Application.Top.Add(state.GetView());
 
@@ -31,6 +30,6 @@ namespace TodoTree.Cli
             aTimer.AutoReset = true;
             aTimer.Enabled = true;
             Application.Run();
-    }
+        }
     }
 }

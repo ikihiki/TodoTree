@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,7 +26,10 @@ namespace TodoTree
 
         public TodoRepository()
         {
-            db = new LiteDatabase("todo.db");
+            var parent = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var path = Path.Combine(parent, "TodoTree");
+            Directory.CreateDirectory(path);
+            db = new LiteDatabase(Path.Combine(path ,"todo.db"));
         }
 
         public void Dispose()
@@ -76,13 +80,13 @@ namespace TodoTree
                 return null;
             }
 
-            if (dto.Childrens == null)
-            {
-                return new Todo(dto.Name, dto.EstimateTime, dto.TimeRecords) { Compleated = dto.Completed, Id = dto.Id.ToString(), IsChild = dto.IsChild };
+            if (dto.Childrens?.Count > 0 )
+            {               
+                return new Todo(dto.Name, dto.Childrens.Select(id => GeTodoById(id)).Where(todo => todo != null)) { Id = dto.Id.ToString(), IsChild = dto.IsChild };
             }
             else
-            {
-                return new Todo(dto.Name, dto.Childrens.Select(id => GeTodoById(id)).Where(todo => todo != null)) { Id = dto.Id.ToString(), IsChild = dto.IsChild };
+            { 
+                return new Todo(dto.Name, dto.EstimateTime, dto.TimeRecords?? Enumerable.Empty<TimeRecord>()) { Compleated = dto.Completed, Id = dto.Id.ToString(), IsChild = dto.IsChild };
             }
         }
 

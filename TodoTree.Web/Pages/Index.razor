@@ -123,10 +123,10 @@ else
     private void ToggleComplete(Todo todo){
         Console.WriteLine("toggle");
         if(todo.Compleated){
-            todo.Complete();
+            todo.UnComplete();
             Console.WriteLine("UnComplete");
         }else{
-            todo.UnComplete();
+            todo.Complete();
             Console.WriteLine("Complete");
         }
         TodoRepository.AddOrUpdate(todo);
