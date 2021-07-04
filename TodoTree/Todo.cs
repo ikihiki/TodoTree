@@ -36,22 +36,27 @@ namespace TodoTree
 
         public bool IsChild { get; set; }
 
+        public Dictionary<string,string> Attribute { get; set; }
+
         public Todo()
         {
             timeRecords = new TimeRecordCollection();
+            Attribute = new();
         }
 
-        public Todo(string name, TimeSpan estimateTime, IEnumerable<TimeRecord> timeRecords)
+        public Todo(string name, TimeSpan estimateTime, IEnumerable<TimeRecord> timeRecords, Dictionary<string, string> attribute)
         {
             this.timeRecords = new TimeRecordCollection(timeRecords);
             Name = name;
             EstimateTime = estimateTime;
+            Attribute = attribute;
         }
 
-        public Todo(string name, IEnumerable<Todo> children)
+        public Todo(string name, IEnumerable<Todo> children, Dictionary<string, string> attribute)
         {
             Name = name;
             todoCollection = new TodoCollection(children);
+            Attribute = attribute;
         }
 
 
@@ -112,12 +117,12 @@ namespace TodoTree
         {
             if (HasChildren)
             {
-                todoCollection.Add(new Todo("New Todo", TimeSpan.Zero, Enumerable.Empty<TimeRecord>()) { IsChild = true });
+                todoCollection.Add(new Todo("New Todo", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()) { IsChild = true });
             }
             else
             {
                 todoCollection = new TodoCollection(new[]
-                    {new Todo("New Todo", estimateTime, Enumerable.Empty<TimeRecord>()){IsChild = true}});
+                    {new Todo("New Todo", estimateTime, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()){IsChild = true}});
                 estimateTime = TimeSpan.Zero;
                 compleated = false;
                 timeRecords = null;

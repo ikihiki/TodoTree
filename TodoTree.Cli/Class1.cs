@@ -92,7 +92,7 @@ namespace TodoTree.Cli
                                     ok:(title, time)=>
                                     {
                                         setShowAddWindow(false);
-                                        repository.AddOrUpdate(new Todo(title, time, Enumerable.Empty<TimeRecord>()));
+                                        repository.AddOrUpdate(new Todo(title, time, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()));
                                         setTodos(GetTodos(showAll));
                                     }
                                 ),
