@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -36,7 +37,7 @@ namespace TodoTree
 
         public bool IsChild { get; set; }
 
-        public Dictionary<string,string> Attribute { get; set; }
+        public StringDictionary Attribute { get; set; }
 
         public Todo()
         {
@@ -44,7 +45,7 @@ namespace TodoTree
             Attribute = new();
         }
 
-        public Todo(string name, TimeSpan estimateTime, IEnumerable<TimeRecord> timeRecords, Dictionary<string, string> attribute)
+        public Todo(string name, TimeSpan estimateTime, IEnumerable<TimeRecord> timeRecords, StringDictionary attribute)
         {
             this.timeRecords = new TimeRecordCollection(timeRecords);
             Name = name;
@@ -52,7 +53,7 @@ namespace TodoTree
             Attribute = attribute;
         }
 
-        public Todo(string name, IEnumerable<Todo> children, Dictionary<string, string> attribute)
+        public Todo(string name, IEnumerable<Todo> children, StringDictionary attribute)
         {
             Name = name;
             todoCollection = new TodoCollection(children);

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using System.Threading;
@@ -144,7 +145,8 @@ public class GamingHubClient : IGamingHubReceiver
 ";
 
 
-        private readonly string pluginPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "plugin");
+        private readonly string pluginPath =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "plugin");
 
 
 
@@ -163,44 +165,81 @@ public class GamingHubClient : IGamingHubReceiver
         }
     }
 
-    // Server implementation
+
+    public class Plungin
+    {
+        private Dictionary<string, List<GamingHub>> plugins;
+
+        public void Register(Capability capability, GamingHub plugin)
+        {
+            foreach (var c in capability.Capabilities)
+            {
+                if (!plugins.ContainsKey(c))
+                {
+                    plugins.Add(c, new List<GamingHub>());
+                }
+
+                plugins[c].Add(plugin);
+            }
+        }
+
+
+        public void UnRegister(GamingHub plugin)
+        {
+            foreach (var plugin1 in plugins)
+            {
+                if (plugin1.Value.Contains(plugin))
+                {
+                    plugin1.Value.Remove(plugin);
+                }
+            }
+        }
+
+
+
+        public void Import(IEnumerable<Todo> todo)
+        {
+            if (plugins.ContainsKey(typeof(ImportPlugin).FullName))
+            {
+                foreach (var p in plugins[typeof(ImportPlugin).FullName])
+                {
+                    
+                }
+
+                
+            }
+        }
+    }
+
+
+// Server implementation
     // implements : StreamingHubBase<THub, TReceiver>, THub
     public class GamingHub : StreamingHubBase<IGamingHub, IGamingHubReceiver>, IGamingHub
     {
-        // this class is instantiated per connected so fields are cache area of connection.
-        IGroup room;
-        Player self;
-        IInMemoryStorage<Player> storage;
+        private Plungin manager;
+        private string id;
 
-        public async Task<Player[]> JoinAsync(string roomName, string userName, int position, int rotation)
+        public GamingHub(Plungin manager)
         {
-            self = new Player() { Name = userName, Position = position, Rotation = rotation };
-
-            // Group can bundle many connections and it has inmemory-storage so add any type per group. 
-            (room, storage) = await Group.AddAsync(roomName, self);
-
-            // Typed Server->Client broadcast.
-            Broadcast(room).OnJoin(self);
-
-            return storage.AllValues.ToArray();
+            this.manager = manager;
+            id = Guid.NewGuid().ToString();
         }
 
-        public async Task LeaveAsync()
+        public async Task<string> RegisterPlugin(Capability capability)
         {
-            await room.RemoveAsync(this.Context);
-            Broadcast(room).OnLeave(self);
+            manager.Register(capability, this);
+            return id;
         }
 
-        public async Task MoveAsync(int position, int rotation)
+        public Task ReturnImportResult(string token, string instance, IEnumerable<TodoData> todo)
         {
-            self.Position = position;
-            self.Rotation = rotation;
-            Broadcast(room).OnMove(self);
+            throw new NotImplementedException();
         }
 
         // You can hook OnConnecting/OnDisconnected by override.
         protected override ValueTask OnDisconnected()
         {
+            manager.UnRegister(this);
             // on disconnecting, if automatically removed this connection from group.
             return CompletedTask;
         }
