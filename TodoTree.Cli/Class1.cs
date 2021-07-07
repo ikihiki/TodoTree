@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text.Json;
 using NStack;
@@ -92,7 +93,7 @@ namespace TodoTree.Cli
                                     ok:(title, time)=>
                                     {
                                         setShowAddWindow(false);
-                                        repository.AddOrUpdate(new Todo(title, time, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()));
+                                        repository.AddOrUpdate(new Todo(title, time, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
                                         setTodos(GetTodos(showAll));
                                     }
                                 ),

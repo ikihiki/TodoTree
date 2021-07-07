@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
@@ -18,7 +19,7 @@ namespace TodoTree
         public IList<TimeRecord> TimeRecords { get; set; }
         public IList<ObjectId> Childrens { get; set; }
         public bool IsChild { get; set; }
-        public Dictionary<string, string> Attribute { get; set; }
+        public Dictionary<string,string> Attribute { get; set; }
     }
 
     public class TodoRepository : IDisposable

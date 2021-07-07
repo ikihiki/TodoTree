@@ -15,7 +15,7 @@ namespace TodoTree.PluginInfra
     // Server -> Client definition
     public interface IGamingHubReceiver
     {
-        Task Import(string token,IEnumerable<TodoData> todo);
+        void Import(string token,IEnumerable<TodoData> todo);
 
     }
 
@@ -68,7 +68,7 @@ namespace TodoTree.PluginInfra
 
         }
 
-        public async Task Import(string token, IEnumerable<TodoData> todo)
+        public async void Import(string token, IEnumerable<TodoData> todo)
         {
             if (value is ImportPlugin import)
             {
@@ -99,7 +99,7 @@ namespace TodoTree.PluginInfra
     [MessagePackObject]
     public class Capability
     {
-        public IEnumerable<string> Capabilities { get; set; }
+        [Key(0)] public IEnumerable<string> Capabilities { get; set; }
     }
 
     [MessagePackObject]
@@ -109,14 +109,16 @@ namespace TodoTree.PluginInfra
         [Key(1)] public string Name { get; set; }
         [Key(2)] public TimeSpan EstimateTime { get; set; }
         [Key(3)] public string Parent { get; set; }
-        [Key(4)] public StringDictionary Attributes { get; set; }
+        [Key(4)] public Dictionary<string,string> Attributes { get; set; }
     }
 
     public static class TodoConvert
     {
         public static IEnumerable<TodoData> Convert(IEnumerable<Todo> todos)
         {
-            return todos.SelectMany(todo => Convert(todo, null));
+            return todos == null
+                ? Enumerable.Empty<TodoData>()
+                : todos.SelectMany(todo => todo == null ? Enumerable.Empty<TodoData>() : Convert(todo, null));
         }
 
         public static IEnumerable<TodoData> Convert(Todo todo, string parent)

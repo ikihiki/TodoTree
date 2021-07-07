@@ -1,6 +1,7 @@
 ﻿@page "/"
 
 @using System.Timers
+@using System.Collections.Specialized
 @inject TodoRepository TodoRepository
 @inject DialogService DialogService
 
@@ -102,7 +103,7 @@ else
 
     private void Add()
     {
-        TodoRepository.AddOrUpdate(new Todo("TodoItem", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()));
+        TodoRepository.AddOrUpdate(new Todo("TodoItem", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
         todos = TodoRepository.GetTopTodo().ToArray();
     }
 
