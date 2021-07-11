@@ -15,7 +15,7 @@ namespace TodoTree.PluginInfra
     // Server -> Client definition
     public interface IGamingHubReceiver
     {
-        void Import(string token,IEnumerable<TodoData> todo);
+        void Import(string token, IEnumerable<TodoData> todo);
 
     }
 
@@ -31,7 +31,7 @@ namespace TodoTree.PluginInfra
 
     public interface ImportPlugin
     {
-        Task<IEnumerable<TodoData>> Import( IEnumerable<TodoData> todo);
+        Task<IEnumerable<TodoData>> Import(IEnumerable<TodoData> todo);
     }
 
     public class PluginBody<T> : IGamingHubReceiver where T : new()
@@ -109,7 +109,9 @@ namespace TodoTree.PluginInfra
         [Key(1)] public string Name { get; set; }
         [Key(2)] public TimeSpan EstimateTime { get; set; }
         [Key(3)] public string Parent { get; set; }
-        [Key(4)] public Dictionary<string,string> Attributes { get; set; }
+        [Key(4)] public Dictionary<string, string> Attributes { get; set; }
+        [Key(5)] public IEnumerable<TimeRecord> TimeRecords { get; set; }
+        [Key(6)] public bool Completed { get; set; }
     }
 
     public static class TodoConvert
@@ -136,5 +138,68 @@ namespace TodoTree.PluginInfra
         }
     }
 
+    public class TodoManager
+    {
+        private Dictionary<string, Todo> todoDictionary = new Dictionary<string, Todo>();
+        private List<Todo> topTodo = new List<Todo>();
+
+        public IEnumerable<Todo> TopTodo => topTodo;
+
+        public void UpsertTodo(TodoData data)
+        {
+            if (todoDictionary.ContainsKey(data.Id))
+            {
+                UpdateTodo(data);
+            }
+            else
+            {
+                AddTodo(data);
+            }
+        }
+
+
+
+        private void AddTodo(TodoData data)
+        {
+            var todo = new Todo(data.Name, data.EstimateTime, data.TimeRecords, data.Attributes);
+            todo.Id = data.Id;
+            todo.Compleated = data.Completed;
+            todoDictionary.Add(data.Id, todo);
+            if (data.Parent is null)
+            {
+                topTodo.Add(todo);
+            }
+            else
+            {
+                todo.IsChild = true;
+                if (!todoDictionary.ContainsKey(data.Parent))
+                {
+                    AddTodo(new TodoData
+                    {
+                        Id = data.Parent,
+                        Parent = null,
+                        Attributes = new Dictionary<string, string>(),
+                        Completed = false,
+                        EstimateTime = TimeSpan.Zero,
+                        Name = $"temp parent :{data.Parent}",
+                        TimeRecords = Enumerable.Empty<TimeRecord>()
+                    });
+                }
+                var parent = todoDictionary[data.Parent];
+                parent.AddChild(todo);
+            }
+
+        }
+
+
+
+        private void UpdateTodo(TodoData data)
+        {
+            var todo = todoDictionary[data.Id];
+            todo.Attribute = data.Attributes;
+            todo.Compleated = data.Completed;
+            todo.Name = data.Name;
+        }
+    }
 
 }
