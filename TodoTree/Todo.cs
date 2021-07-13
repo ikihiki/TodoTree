@@ -39,6 +39,8 @@ namespace TodoTree
 
         public Dictionary<string, string> Attribute { get; set; }
 
+        public Todo Parent { get; set; }
+
         public Todo()
         {
             timeRecords = new TimeRecordCollection();
@@ -118,12 +120,12 @@ namespace TodoTree
         {
             if (HasChildren)
             {
-                todoCollection.Add(new Todo("New Todo", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()) { IsChild = true });
+                todoCollection.Add(new Todo("New Todo", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()) { IsChild = true, Parent = this});
             }
             else
             {
                 todoCollection = new TodoCollection(new[]
-                    {new Todo("New Todo", estimateTime, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()){IsChild = true}});
+                    {new Todo("New Todo", estimateTime, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()){IsChild = true, Parent = this}});
                 estimateTime = TimeSpan.Zero;
                 compleated = false;
                 timeRecords = null;
@@ -132,6 +134,7 @@ namespace TodoTree
 
         public void DeleteChild(Todo child)
         {
+            child.Parent = null;
             if (!HasChildren)
             {
                 return;
@@ -156,6 +159,10 @@ namespace TodoTree
 
             estimateTime = todoCollection.GetEstimateTime();
             timeRecords = new TimeRecordCollection();
+            foreach (var todo in todoCollection.Todos)
+            {
+                todo.Parent = null;
+            }
             todoCollection = null;
         }
 
@@ -166,6 +173,7 @@ namespace TodoTree
 
         public void AddChild(Todo todo)
         {
+            todo.Parent = this;
             if (HasChildren)
             {
                 todoCollection.Add(todo);
