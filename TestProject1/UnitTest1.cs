@@ -21,10 +21,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                        )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                        }
                 },
                 Completed = true
             };
@@ -49,10 +49,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -66,10 +66,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -97,10 +97,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -114,10 +114,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -145,10 +145,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -177,10 +177,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -194,10 +194,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -211,10 +211,10 @@ namespace TestProject1
                 Name = "Children",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -242,10 +242,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };
@@ -259,10 +259,10 @@ namespace TestProject1
                 Name = "TestTodo",
                 TimeRecords = new[]
                 {
-                    new TimeRecord(
-                        new DateTime(2014, 02, 03, 11, 22, 33),
-                        new DateTime(2014, 02, 03, 11, 22, 34)
-                    )
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
                 },
                 Completed = true
             };

@@ -107,6 +107,13 @@ namespace TodoTree.PluginInfra
     }
 
     [MessagePackObject]
+    public class TimeRecordData
+    {
+        [Key(0)] public DateTime Start { get; set; }
+        [Key(1)] public DateTime? End { get; set; }
+    }
+
+    [MessagePackObject]
     public class TodoData
     {
         [Key(0)] public string Id { get; set; }
@@ -114,7 +121,7 @@ namespace TodoTree.PluginInfra
         [Key(2)] public TimeSpan EstimateTime { get; set; }
         [Key(3)] public string Parent { get; set; }
         [Key(4)] public Dictionary<string, string> Attributes { get; set; }
-        [Key(5)] public IEnumerable<TimeRecord> TimeRecords { get; set; }
+        [Key(5)] public IEnumerable<TimeRecordData> TimeRecords { get; set; }
         [Key(6)] public bool Completed { get; set; }
     }
 
@@ -124,7 +131,7 @@ namespace TodoTree.PluginInfra
         {
             return todos == null
                 ? Enumerable.Empty<TodoData>()
-                : todos.SelectMany(todo => todo == null ? Enumerable.Empty<TodoData>() : Convert(todo));
+                : todos.SelectMany(todo => todo == null ? Enumerable.Empty<TodoData>() : Convert(todo)).ToArray();
         }
 
         public static IEnumerable<TodoData> Convert(Todo todo)
@@ -138,9 +145,11 @@ namespace TodoTree.PluginInfra
                         Name = todo.Name,
                         EstimateTime = todo.EstimateTime,
                         Attributes = todo.Attribute,
-                        Parent = todo.Parent?.Id
+                        Parent = todo.Parent?.Id,
+                        Completed = todo.Compleated,
+                        TimeRecords = todo.TimeRecords == null? Enumerable.Empty<TimeRecordData>(): todo.TimeRecords.Select(time=> new TimeRecordData(){Start = time.StartDateTime, End = time.EndDateTime}).ToArray()
                     }
-                });
+                }).ToArray();
         }
     }
 
@@ -194,7 +203,8 @@ namespace TodoTree.PluginInfra
 
         private void AddTodo(TodoData data)
         {
-            var todo = new Todo(data.Name, data.EstimateTime, data.TimeRecords, data.Attributes);
+            var timeRecords = data.TimeRecords.Select(time => new TimeRecord(time.Start, time.End)).ToArray();
+            var todo = new Todo(data.Name, data.EstimateTime, timeRecords, data.Attributes);
             todo.Id = data.Id;
             todo.Compleated = data.Completed;
             todoDictionary.Add(data.Id, todo);
@@ -215,7 +225,7 @@ namespace TodoTree.PluginInfra
                         Completed = false,
                         EstimateTime = TimeSpan.Zero,
                         Name = $"temp parent :{data.Parent}",
-                        TimeRecords = Enumerable.Empty<TimeRecord>()
+                        TimeRecords = Enumerable.Empty<TimeRecordData>()
                     });
                 }
 
@@ -246,7 +256,7 @@ namespace TodoTree.PluginInfra
                         Completed = false,
                         EstimateTime = TimeSpan.Zero,
                         Name = $"temp parent :{data.Parent}",
-                        TimeRecords = Enumerable.Empty<TimeRecord>()
+                        TimeRecords = Enumerable.Empty<TimeRecordData>()
                     });
                 }
 
@@ -276,92 +286,16 @@ namespace TodoTree.PluginInfra
         UnaryResult<TodoData> Start(string id);
         UnaryResult<TodoData> Stop(string id);
         UnaryResult<TodoData> Complete(string id);
-        UnaryResult<TodoData> Unomplete(string id);
+        UnaryResult<TodoData> UnComplete(string id);
     }
 
 
-    public class TodoServer : ServiceBase<ITodoService>, ITodoService
-    {
-        private readonly TodoRepository repository;
-        private readonly TodoManager manager;
-        private readonly IPublisher<IEnumerable<TodoData>> publisher;
 
-        public TodoServer(TodoRepository repository, IPublisher<IEnumerable<TodoData>> publisher)
-        {
-            this.repository = repository;
-            this.publisher = publisher;
-            manager = new TodoManager(repository.GetAllTodo());
-        }
-
-        public async UnaryResult<IEnumerable<TodoData>> Get()
-        {
-            return TodoConvert.Convert(repository.GetTopTodo());
-        }
-
-        public async UnaryResult<TodoData> Upsert(TodoData data)
-        {
-            manager.UpsertTodo(data);
-            var result = manager.GetTodo(data.Id);
-            repository.AddOrUpdate(result);
-            var changed = TodoConvert.Convert(result).First();
-            publisher.Publish(new[] { changed });
-            return changed;
-        }
-
-        public async UnaryResult<IEnumerable<TodoData>> Delete(string id)
-        {
-            var todo = manager.GetTodo(id);
-            manager.DeleteTodo(id);
-            repository.Delete(todo);
-            return TodoConvert.Convert(manager.TopTodo);
-        }
-
-        public async UnaryResult<TodoData> Start(string id)
-        {
-            var todo = manager.GetTodo(id);
-            todo.Start();
-            manager.UpsertTodo(TodoConvert.Convert(todo).First());
-            repository.AddOrUpdate(todo);
-            return TodoConvert.Convert(todo).First();
-        }
-
-        public async UnaryResult<TodoData> Stop(string id)
-        {
-            var todo = manager.GetTodo(id);
-            todo.Stop();
-            var changed = TodoConvert.Convert(todo).First();
-            manager.UpsertTodo(changed);
-            repository.AddOrUpdate(todo);
-            publisher.Publish(new[] { changed });
-            return changed;
-        }
-
-        public async UnaryResult<TodoData> Complete(string id)
-        {
-            var todo = manager.GetTodo(id);
-            todo.Complete();
-            var changed = TodoConvert.Convert(todo).First();
-            manager.UpsertTodo(changed);
-            repository.AddOrUpdate(todo);
-            publisher.Publish(new[] { changed });
-            return changed;
-        }
-
-        public async UnaryResult<TodoData> Unomplete(string id)
-        {
-            var todo = manager.GetTodo(id);
-            todo.UnComplete();
-            var changed = TodoConvert.Convert(todo).First();
-            manager.UpsertTodo(changed);
-            repository.AddOrUpdate(todo);
-            publisher.Publish(new[] { changed });
-            return changed;
-        }
-    }
 
     public interface ITodoNotifyReceiver
     {
         void OnUpdate(IEnumerable<TodoData> data);
+        void OnDelete(IEnumerable<TodoData> data);
     }
 
     public interface ITodoNotify : IStreamingHub<ITodoNotify, ITodoNotifyReceiver>
@@ -369,34 +303,20 @@ namespace TodoTree.PluginInfra
         Task Join();
     }
 
-    public class TodoNotifyHub : StreamingHubBase<ITodoNotify, ITodoNotifyReceiver>, ITodoNotify
-    {
-        IDisposable disposable;
-        IGroup room;
 
-        public async Task Join()
-        {
-            room = await Group.AddAsync(this.ConnectionId.ToString());
-            ISubscriber<IEnumerable<TodoData>> subscriber =
-                this.Context.ServiceProvider.GetService<ISubscriber<IEnumerable<TodoData>>>();
-            disposable = subscriber.Subscribe(data => this.BroadcastToSelf(room).OnUpdate(data));
-        }
-
-        protected override async ValueTask OnDisconnected()
-        {
-            disposable?.Dispose();
-        }
-    }
 
 
     public class TodoServiceClient : ITodoNotifyReceiver
     {
         private readonly string address;
 
-        GrpcChannel channel; 
+        GrpcChannel channel;
         ITodoNotify notifyClient;
         ITodoService serviceClient;
         private TodoManager manager;
+
+        public event Action ChangeTodo;
+        
 
         public TodoServiceClient(string address)
         {
@@ -412,11 +332,18 @@ namespace TodoTree.PluginInfra
             manager = new TodoManager(await serviceClient.Get());
         }
 
+        public async Task CheckAndConnect()
+        {
+            if (channel == null)
+            {
+                await Connect();
+            }
+        }
 
         public void OnUpdate(IEnumerable<TodoData> data)
         {
-
             manager.UpsertTodoRange(data);
+            ChangeTodo?.Invoke();
         }
 
         public IEnumerable<Todo> GetTopTodos()
@@ -426,32 +353,48 @@ namespace TodoTree.PluginInfra
 
         public async Task Upsert(Todo todo)
         {
+            await CheckAndConnect();
             await serviceClient.Upsert(TodoConvert.Convert(todo).First());
         }
 
         public async Task Delete(Todo todo)
         {
+            await CheckAndConnect();
             await serviceClient.Delete(todo.Id);
         }
 
         public async Task Start(Todo todo)
         {
+            await CheckAndConnect();
             await serviceClient.Start(todo.Id);
         }
 
         public async Task Stop(Todo todo)
         {
+            await CheckAndConnect();
             await serviceClient.Stop(todo.Id);
         }
 
         public async Task Complete(Todo todo)
         {
+            await CheckAndConnect();
             await serviceClient.Complete(todo.Id);
         }
 
         public async Task Unomplete(Todo todo)
         {
-            await serviceClient.Unomplete(todo.Id);
+            await CheckAndConnect();
+            await serviceClient.UnComplete(todo.Id);
+        }
+
+        public void OnDelete(IEnumerable<TodoData> data)
+        {
+            foreach (var todoData in data)
+            {
+                manager.DeleteTodo(todoData.Id);
+            }
+            ChangeTodo?.Invoke();
+
         }
     }
 

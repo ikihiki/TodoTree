@@ -161,6 +161,7 @@ namespace TodoTree
             timeRecords = new TimeRecordCollection();
             foreach (var todo in todoCollection.Todos)
             {
+                todo.DeleteAllChildren();
                 todo.Parent = null;
             }
             todoCollection = null;

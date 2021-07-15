@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using ElectronNET.API;
 using Radzen;
+using TodoTree.PluginInfra;
 
 namespace TodoTree.Web
 {
@@ -28,7 +29,7 @@ namespace TodoTree.Web
         {
             services.AddRazorPages();
             services.AddServerSideBlazor();
-            services.AddSingleton<TodoRepository>();
+            services.AddSingleton<TodoServiceClient>(new TodoServiceClient("https://localhost:5001"));
             services.AddScoped<DialogService>();
         }
 
@@ -54,7 +55,8 @@ namespace TodoTree.Web
                 endpoints.MapFallbackToPage("/_Host");
             });
 
-            Task.Run(async () => await Electron.WindowManager.CreateWindowAsync());
+            //Task.Run(async () => await Electron.WindowManager.CreateWindowAsync());
+            Task.Run(async () => await app.ApplicationServices.GetService<TodoServiceClient>()?.Connect());
         }
     }
 }

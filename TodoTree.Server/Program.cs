@@ -11,6 +11,10 @@ using MagicOnion.Server.Hubs;
 using Microsoft.Extensions.DependencyInjection;
 using TodoTree.Server;
 using System.Linq;
+using LiteDB;
+using MagicOnion;
+using MagicOnion.Server;
+using MessagePipe;
 using Microsoft.AspNetCore.Hosting;
 using TodoTree;
 using TodoTree.PluginInfra;
@@ -21,6 +25,7 @@ builder.Services.AddSingleton<TodoRepository>(_ => new TodoRepository());
 builder.Services.AddHostedService<PluginService>();
 builder.Services.AddGrpc();
 builder.Services.AddMagicOnion();
+builder.Services.AddMessagePipe();
 builder.WebHost.UseUrls("http://*:5000;https://*:5001;");
 await using var app = builder.Build();
 
@@ -152,7 +157,7 @@ public class Sample : ImportPlugin
                     try
                     {
                         var r = await p.Key.Import(requestId, t);
-                       list.AddRange(r);
+                        list.AddRange(r);
                     }
                     catch (Exception e)
                     {
@@ -209,7 +214,8 @@ public class Sample : ImportPlugin
                 comp.SetResult(todo);
                 requests.TryRemove(new KeyValuePair<string, object>(token, comp));
 
-            }else if (requests.TryRemove(token, out var obj2))
+            }
+            else if (requests.TryRemove(token, out var obj2))
             {
                 Cancel(obj2);
             }
@@ -221,7 +227,7 @@ public class Sample : ImportPlugin
             d.SetCanceled();
         }
 
-    // You can hook OnConnecting/OnDisconnected by override.
+        // You can hook OnConnecting/OnDisconnected by override.
         protected override ValueTask OnDisconnected()
         {
             Console.WriteLine($"UnRegister: {this.ConnectionId.ToString()}");
@@ -232,6 +238,137 @@ public class Sample : ImportPlugin
             }
             manager.UnRegister(this);
             return CompletedTask;
+        }
+    }
+
+    public enum TodoChangeType
+    {
+        Upsert,
+        Delete
+    }
+
+    public class TodoChangeMessage
+    {
+        public TodoChangeType Type { get; set; }
+        public IEnumerable<TodoData> Data { get; set; }
+    }
+
+
+    public class TodoNotifyHub : StreamingHubBase<ITodoNotify, ITodoNotifyReceiver>, ITodoNotify
+    {
+        IDisposable disposable;
+        IGroup room;
+
+        public async Task Join()
+        {
+            room = await Group.AddAsync(this.ConnectionId.ToString());
+            ISubscriber<TodoChangeMessage> subscriber =
+                this.Context.ServiceProvider.GetService<ISubscriber<TodoChangeMessage>>();
+            disposable = subscriber.Subscribe(mes =>
+            {
+                switch (mes.Type)
+                {
+                    case TodoChangeType.Upsert:
+                        this.BroadcastToSelf(room).OnUpdate(mes.Data);
+                        break;
+                    case TodoChangeType.Delete:
+                        this.BroadcastToSelf(room).OnDelete(mes.Data);
+                        break;
+                };
+            });
+        }
+
+        protected override async ValueTask OnDisconnected()
+        {
+            disposable?.Dispose();
+        }
+    }
+
+    public class TodoServer : ServiceBase<ITodoService>, ITodoService
+    {
+        private readonly TodoRepository repository;
+        private readonly TodoManager manager;
+        private readonly IPublisher<TodoChangeMessage> publisher;
+
+        public TodoServer(TodoRepository repository, IPublisher<TodoChangeMessage> publisher)
+        {
+            this.repository = repository;
+            this.publisher = publisher;
+            manager = new TodoManager(repository.GetAllTodo());
+        }
+
+        public async UnaryResult<IEnumerable<TodoData>> Get()
+        {
+            return TodoConvert.Convert(repository.GetTopTodo());
+        }
+
+        public async UnaryResult<TodoData> Upsert(TodoData data)
+        {
+            if (data.Id == null)
+            {
+                data.Id = ObjectId.NewObjectId().ToString();
+            }
+            manager.UpsertTodo(data);
+            var result = manager.GetTodo(data.Id); 
+            repository.AddOrUpdate(result);
+
+            var changed = TodoConvert.Convert(result).First();
+            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
+            return changed;
+        }
+
+        public async UnaryResult<IEnumerable<TodoData>> Delete(string id)
+        {
+            var todo = manager.GetTodo(id);
+            manager.DeleteTodo(id);
+            repository.Delete(todo);
+            var changed = TodoConvert.Convert(manager.TopTodo).ToArray();
+            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Delete, Data = changed });
+            return changed;
+        }
+
+        public async UnaryResult<TodoData> Start(string id)
+        {
+            var todo = manager.GetTodo(id);
+            todo.Start();
+            var changed = TodoConvert.Convert(todo).First();
+            manager.UpsertTodo(changed);
+            repository.AddOrUpdate(todo);
+            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
+            return changed;
+        }
+
+        public async UnaryResult<TodoData> Stop(string id)
+        {
+            var todo = manager.GetTodo(id);
+            todo.Stop();
+            var changed = TodoConvert.Convert(todo).First();
+            manager.UpsertTodo(changed);
+            repository.AddOrUpdate(todo);
+            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
+            return changed;
+        }
+
+        public async UnaryResult<TodoData> Complete(string id)
+        {
+            var todo = manager.GetTodo(id);
+            todo.Complete();
+            var changed = TodoConvert.Convert(todo).First();
+            manager.UpsertTodo(changed);
+            repository.AddOrUpdate(todo);
+            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
+            return changed;
+        }
+
+        public async UnaryResult<TodoData> UnComplete(string id)
+        {
+            var todo = manager.GetTodo(id);
+            todo.UnComplete();
+            var changed = TodoConvert.Convert(todo).First();
+            manager.UpsertTodo(changed);
+            repository.AddOrUpdate(todo);
+            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
+            return changed;
         }
     }
 }

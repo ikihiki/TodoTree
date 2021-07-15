@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using LiteDB;
 using Terminal.Gui;
+using TodoTree.PluginInfra;
 
 namespace TodoTree.Cli
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            var repository = new TodoRepository();
+            var repository = new TodoServiceClient("https://localhost:5001");
+            await repository.Connect();
 
             Application.Init();
             var top = App1.Body("tst", repository);
@@ -23,6 +26,7 @@ namespace TodoTree.Cli
             }
 
             state.RequestUpdate += OnStateOnRequestUpdate;
+            repository.ChangeTodo += OnStateOnRequestUpdate;
             // Create a timer with a two second interval.
             var aTimer = new System.Timers.Timer(1000);
             // Hook up the Elapsed event for the timer. 

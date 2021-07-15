@@ -5,13 +5,14 @@ using System.Linq;
 using System.Text.Json;
 using NStack;
 using Terminal.Gui;
+using TodoTree.PluginInfra;
 using static TodoTree.Cli.UI;
 
 namespace TodoTree.Cli
 {
     public static class App1
     {
-        public static Element Body(string txt, TodoRepository repository)
+        public static Element Body(string txt, TodoServiceClient repository)
         {
             return CreateElement((state) =>
             {
@@ -20,7 +21,7 @@ namespace TodoTree.Cli
                 var (showAll, setShowAll) = state.CreateState(false);
                 IEnumerable<Todo> GetTodos(bool showAll)
                 {
-                    return repository.GetTopTodo().Where(todo => showAll || !todo.Compleated).ToArray();
+                    return repository.GetTopTodos().Where(todo => showAll || !todo.Compleated).ToArray();
                 }
                 var (todos, setTodos) = state.CreateState(GetTodos(showAll));
                 var (selectedTodo, setSelectedTodo) = state.CreateState<Todo>(null);
@@ -49,7 +50,7 @@ namespace TodoTree.Cli
                                     {
                                         selectedTodo.Complete();
                                     }
-                                    repository.AddOrUpdate(selectedTodo);
+                                    _ = repository.Upsert(selectedTodo);
                                     setTodos(GetTodos(showAll));
                                 }),
                                 CheckBox("すべて表示", showAll, val=>
@@ -73,7 +74,7 @@ namespace TodoTree.Cli
                                     {
                                         todo.Start();
                                     }
-                                    repository.AddOrUpdate(todo);
+                                    _ = repository.Upsert(todo);
 
                                 },
                                 selected: (todo) =>
@@ -93,7 +94,7 @@ namespace TodoTree.Cli
                                     ok:(title, time)=>
                                     {
                                         setShowAddWindow(false);
-                                        repository.AddOrUpdate(new Todo(title, time, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
+                                        _ = repository.Upsert(new Todo(title, time, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
                                         setTodos(GetTodos(showAll));
                                     }
                                 ),

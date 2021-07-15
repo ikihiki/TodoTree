@@ -2,7 +2,8 @@
 
 @using System.Timers
 @using System.Collections.Specialized
-@inject TodoRepository TodoRepository
+@using TodoTree.PluginInfra
+@inject TodoServiceClient TodoRepository
 @inject DialogService DialogService
 
 @if (todos == null)
@@ -89,7 +90,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        todos = TodoRepository.GetTopTodo().ToArray();
+        todos = TodoRepository.GetTopTodos().ToArray();
         timer = new Timer(1000);
         timer.AutoReset = true;
         timer.Elapsed += async (sender, args) => await InvokeAsync(() => StateHasChanged());
@@ -101,69 +102,71 @@ else
         return showCompleted || !todo.Compleated;
     }
 
-    private void Add()
+    private async Task Add()
     {
-        TodoRepository.AddOrUpdate(new Todo("TodoItem", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
-        todos = TodoRepository.GetTopTodo().ToArray();
+        await TodoRepository.Upsert(new Todo("TodoItem", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
+        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
-    private void ChangeName(Todo todo, string name)
+    private async Task ChangeName(Todo todo, string name)
     {
-        TodoRepository.AddOrUpdate(todo);
+        await TodoRepository.Upsert(todo);
+        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
-    public void ChangeEstimateTime(Todo todo, DateTime? dateTime)
+    public async Task ChangeEstimateTime(Todo todo, DateTime? dateTime)
     {
         if (!todo.HasChildren)
         {
             todo.EstimateTime = dateTime?.TimeOfDay ?? TimeSpan.Zero;
-            TodoRepository.AddOrUpdate(todo);
+            await TodoRepository.Upsert(todo);
         }
     }
 
-    private void Start(Todo todo)
+    private async Task Start(Todo todo)
     {
-        todo.Start();
-        TodoRepository.AddOrUpdate(todo);
+        await TodoRepository.Start(todo);
+        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
-    private void Stop(Todo todo)
+    private async Task Stop(Todo todo)
     {
-        todo.Stop();
-        TodoRepository.AddOrUpdate(todo);
+        await TodoRepository.Stop(todo);
+        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
-    private void ToggleComplete(bool state, Todo todo){
+    private async Task ToggleComplete(bool state, Todo todo){
         Console.WriteLine("toggle");
         if(!state){
-            todo.UnComplete();
+            await TodoRepository.Unomplete(todo);
             Console.WriteLine("UnComplete");
         }else{
-            todo.Complete();
+            await TodoRepository.Complete(todo);
             Console.WriteLine("Complete");
         }
-        TodoRepository.AddOrUpdate(todo);
-        this.StateHasChanged();
+        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
-    protected void AddChild(Todo todo)
+    protected async Task AddChild(Todo todo)
     {
         todo.AddChild();
-        TodoRepository.AddOrUpdate(todo);
+        await TodoRepository.Upsert(todo);
+        todos = TodoRepository.GetTopTodos().ToArray();
+
     }
 
-    private void DeleteAllChildren(Todo todo)
+    private async Task DeleteAllChildren(Todo todo)
     {
         todo.DeleteAllChildren();
-        TodoRepository.AddOrUpdate(todo);
-        todos = TodoRepository.GetTopTodo().ToArray();
+        await TodoRepository.Upsert(todo);
+        todos = TodoRepository.GetTopTodos().ToArray();
 
     }
 
-    private void Delete(Todo todo)
+    private async Task Delete(Todo todo)
     {
-        TodoRepository.Delete(todo);
-        todos = TodoRepository.GetTopTodo().ToArray();
+        await TodoRepository.Delete(todo);
+        todos = TodoRepository.GetTopTodos().ToArray();
 
     }
 
