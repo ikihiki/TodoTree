@@ -30,10 +30,10 @@ namespace TestProject1
             };
 
             var manager = new TodoManager();
-            manager.UpsertTodo(data);
+            var change = manager.UpsertTodo(data);
 
             var result = manager.TopTodo.First();
-
+            Assert.Equal(new[] { "1" }, change.OrderBy(id => id));
             Assert.Equal("1", result.Id);
         }
 
@@ -76,10 +76,10 @@ namespace TestProject1
 
             var manager = new TodoManager();
             manager.UpsertTodo(parent);
-            manager.UpsertTodo(child);
+            var change = manager.UpsertTodo(child);
 
             var result = manager.TopTodo.First();
-
+            Assert.Equal(new[] { "1","2" }, change.OrderBy(id => id));
             Assert.Equal("1", result.Id);
             Assert.True(result.HasChildren);
             Assert.Equal("2", result.Children.First().Id);
@@ -123,10 +123,12 @@ namespace TestProject1
             };
 
             var manager = new TodoManager();
-            manager.UpsertTodo(child);
-            manager.UpsertTodo(parent);
+            var change1 = manager.UpsertTodo(child);
+            var change2 = manager.UpsertTodo(parent);
 
             var result = manager.TopTodo.First();
+            Assert.Equal(new[] { "1", "2" }, change1.OrderBy(id => id));
+            Assert.Equal(new[] { "1" }, change2.OrderBy(id => id));
 
             Assert.Equal("1", result.Id);
             Assert.True(result.HasChildren);
@@ -156,9 +158,10 @@ namespace TestProject1
             var manager = new TodoManager();
             manager.UpsertTodo(data);
             data.Name = "Updated";
-            manager.UpsertTodo(data);
+            var change = manager.UpsertTodo(data);
 
             var result = manager.TopTodo.First();
+            Assert.Equal(new[] { "1" }, change.OrderBy(id => id));
 
             Assert.Equal("1", result.Id);
             Assert.Equal("Updated", result.Name);
@@ -223,10 +226,11 @@ namespace TestProject1
             manager.UpsertTodo(parent2);
             manager.UpsertTodo(children);
             children.Parent = "2";
-            manager.UpsertTodo(children);
 
+            var change = manager.UpsertTodo(children);
             var result = manager.TopTodo.Single(t => t.Id == "2").Children.First();
 
+            Assert.Equal(new[]{"1","2","3"}, change.OrderBy(id => id));
             Assert.Equal("3", result.Id);
         }
 
@@ -271,9 +275,10 @@ namespace TestProject1
             manager.UpsertTodo(parent1);
             manager.UpsertTodo(parent2);
             parent2.Parent = "1";
-            manager.UpsertTodo(parent2);
+            var change = manager.UpsertTodo(parent2);
 
             var result = manager.TopTodo.First().Children.First();
+            Assert.Equal(new[] { "1","2" }, change.OrderBy(id=>id));
 
             Assert.Equal("2", result.Id);
         }

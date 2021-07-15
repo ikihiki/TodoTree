@@ -181,28 +181,31 @@ namespace TodoTree.PluginInfra
             UpsertTodoRange(data);
         }
 
-        public void UpsertTodo(TodoData data)
+        public IEnumerable<string> UpsertTodo(TodoData data)
         {
             if (todoDictionary.ContainsKey(data.Id))
             {
-                UpdateTodo(data);
+                return UpdateTodo(data);
             }
             else
             {
-                AddTodo(data);
+                return AddTodo(data);
             }
         }
 
-        public void UpsertTodoRange(IEnumerable<TodoData> data)
+        public IEnumerable<string> UpsertTodoRange(IEnumerable<TodoData> data)
         {
+            var result = new List<string>();
             foreach (var todo in data)
             {
-                UpsertTodo(todo);
+                result.AddRange(UpsertTodo(todo));
             }
+            return result;
         }
 
-        private void AddTodo(TodoData data)
+        private IEnumerable<string> AddTodo(TodoData data)
         {
+            var result = new List<string>();
             var timeRecords = data.TimeRecords.Select(time => new TimeRecord(time.Start, time.End)).ToArray();
             var todo = new Todo(data.Name, data.EstimateTime, timeRecords, data.Attributes);
             todo.Id = data.Id;
@@ -227,23 +230,54 @@ namespace TodoTree.PluginInfra
                         Name = $"temp parent :{data.Parent}",
                         TimeRecords = Enumerable.Empty<TimeRecordData>()
                     });
+                    
                 }
 
                 var parent = todoDictionary[data.Parent];
                 parent.AddChild(todo);
+                result.Add(data.Parent);
             }
-
+            result.Add(data.Id);
+            return result;
         }
 
-        private void UpdateTodo(TodoData data)
+        private IEnumerable<string> UpdateTodo(TodoData data)
         {
+            var result = false;
+            var list = new List<string>();
+
             var todo = todoDictionary[data.Id];
-            todo.Attribute = data.Attributes;
-            todo.Compleated = data.Completed;
-            todo.Name = data.Name;
-            if (todo.Parent?.Id != data.Parent)
+            if (todo.Attribute?
+                .OrderBy((o) => o.Key)
+                .SequenceEqual(data.Attributes?
+                    .OrderBy((o) => o.Key) ?? Enumerable.Empty<KeyValuePair<string,string>>()
+                    ) 
+                is not true)
             {
-                todo.Parent?.DeleteChild(todo);
+                todo.Attribute = data.Attributes;
+                result = true;
+            }
+
+            if (todo.Compleated != data.Completed)
+            {
+                todo.Compleated = data.Completed;
+                result = true;
+            }
+
+            if (todo.Name != data.Name)
+            {
+                todo.Name = data.Name;
+                result = true;
+            }
+
+            if (todo.Parent?.Id != data.Parent)
+            {  
+                if (todo.Parent != null)
+                { 
+                    list.Add(todo.Parent.Id);
+                    todo.Parent?.DeleteChild(todo);
+                }
+                
 
                 todo.IsChild = true;
                 if (!todoDictionary.ContainsKey(data.Parent))
@@ -258,11 +292,21 @@ namespace TodoTree.PluginInfra
                         Name = $"temp parent :{data.Parent}",
                         TimeRecords = Enumerable.Empty<TimeRecordData>()
                     });
+                    
                 }
 
                 var parent = todoDictionary[data.Parent];
                 parent.AddChild(todo);
+
+                list.Add(data.Parent);
+                result = true;
             }
+
+            if (result)
+            {
+                list.Add(data.Id);
+            }
+            return list;
         }
 
         public void DeleteTodo(string id)
@@ -281,7 +325,7 @@ namespace TodoTree.PluginInfra
     public interface ITodoService : IService<ITodoService>
     {
         UnaryResult<IEnumerable<TodoData>> Get();
-        UnaryResult<TodoData> Upsert(TodoData data);
+        UnaryResult<IEnumerable<TodoData>> Upsert(IEnumerable<TodoData> data);
         UnaryResult<IEnumerable<TodoData>> Delete(string id);
         UnaryResult<TodoData> Start(string id);
         UnaryResult<TodoData> Stop(string id);
@@ -316,7 +360,7 @@ namespace TodoTree.PluginInfra
         private TodoManager manager;
 
         public event Action ChangeTodo;
-        
+
 
         public TodoServiceClient(string address)
         {
@@ -354,7 +398,7 @@ namespace TodoTree.PluginInfra
         public async Task Upsert(Todo todo)
         {
             await CheckAndConnect();
-            await serviceClient.Upsert(TodoConvert.Convert(todo).First());
+            await serviceClient.Upsert(TodoConvert.Convert(todo));
         }
 
         public async Task Delete(Todo todo)

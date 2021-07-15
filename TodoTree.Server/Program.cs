@@ -302,19 +302,25 @@ public class Sample : ImportPlugin
             return TodoConvert.Convert(repository.GetTopTodo());
         }
 
-        public async UnaryResult<TodoData> Upsert(TodoData data)
+        public async UnaryResult<IEnumerable<TodoData>> Upsert(IEnumerable<TodoData> data)
         {
-            if (data.Id == null)
+            var changed = new List<string>();
+            foreach (var todoData in data)
             {
-                data.Id = ObjectId.NewObjectId().ToString();
+                if (todoData.Id == null)
+                {
+                    todoData.Id = ObjectId.NewObjectId().ToString();
+                }
+                changed.AddRange( manager.UpsertTodo(todoData));
+                var result = manager.GetTodo(todoData.Id);
+                repository.AddOrUpdate(result);
             }
-            manager.UpsertTodo(data);
-            var result = manager.GetTodo(data.Id); 
-            repository.AddOrUpdate(result);
 
-            var changed = TodoConvert.Convert(result).First();
-            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
-            return changed;
+
+
+            var changedData = changed.Select(id => TodoConvert.Convert(manager.GetTodo(id)).First());
+            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = changedData });
+            return changedData;
         }
 
         public async UnaryResult<IEnumerable<TodoData>> Delete(string id)
