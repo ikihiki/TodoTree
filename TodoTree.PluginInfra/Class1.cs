@@ -125,6 +125,25 @@ namespace TodoTree.PluginInfra
         [Key(6)] public bool Completed { get; set; }
     }
 
+    [MessagePackObject]
+    public class TodoChangeMessage
+    {
+        [Key(0)] public IEnumerable<TodoData> Upsert { get; set; }
+        [Key(1)] public IEnumerable<TodoData> Delete { get; set; }
+
+        public TodoChangeMessage()
+        {
+            Upsert = Enumerable.Empty<TodoData>();
+            Delete = Enumerable.Empty<TodoData>();
+        }
+
+        public void Merge(TodoChangeMessage message)
+        {
+            Upsert = Upsert.Concat(message.Upsert).ToArray();
+            Delete = Delete.Concat(message.Delete).ToArray();
+        }
+    }
+
     public static class TodoConvert
     {
         public static IEnumerable<TodoData> Convert(IEnumerable<Todo> todos)
@@ -181,7 +200,7 @@ namespace TodoTree.PluginInfra
             UpsertTodoRange(data);
         }
 
-        public IEnumerable<string> UpsertTodo(TodoData data)
+        public TodoChangeMessage UpsertTodo(TodoData data)
         {
             if (todoDictionary.ContainsKey(data.Id))
             {
@@ -193,19 +212,19 @@ namespace TodoTree.PluginInfra
             }
         }
 
-        public IEnumerable<string> UpsertTodoRange(IEnumerable<TodoData> data)
+        public TodoChangeMessage UpsertTodoRange(IEnumerable<TodoData> data)
         {
-            var result = new List<string>();
+            var result = new TodoChangeMessage();
             foreach (var todo in data)
             {
-                result.AddRange(UpsertTodo(todo));
+                result.Merge(UpsertTodo(todo));
             }
             return result;
         }
 
-        private IEnumerable<string> AddTodo(TodoData data)
+        private TodoChangeMessage AddTodo(TodoData data)
         {
-            var result = new List<string>();
+            var result = new List<TodoData>();
             var timeRecords = data.TimeRecords.Select(time => new TimeRecord(time.Start, time.End)).ToArray();
             var todo = new Todo(data.Name, data.EstimateTime, timeRecords, data.Attributes);
             todo.Id = data.Id;
@@ -230,28 +249,28 @@ namespace TodoTree.PluginInfra
                         Name = $"temp parent :{data.Parent}",
                         TimeRecords = Enumerable.Empty<TimeRecordData>()
                     });
-                    
+
                 }
 
                 var parent = todoDictionary[data.Parent];
                 parent.AddChild(todo);
-                result.Add(data.Parent);
+                result.Add(TodoConvert.Convert(parent).First());
             }
-            result.Add(data.Id);
-            return result;
+            result.Add(data);
+            return new TodoChangeMessage { Upsert = result };
         }
 
-        private IEnumerable<string> UpdateTodo(TodoData data)
+        private TodoChangeMessage UpdateTodo(TodoData data)
         {
             var result = false;
-            var list = new List<string>();
+            var list = new List<TodoData>();
 
             var todo = todoDictionary[data.Id];
             if (todo.Attribute?
                 .OrderBy((o) => o.Key)
                 .SequenceEqual(data.Attributes?
-                    .OrderBy((o) => o.Key) ?? Enumerable.Empty<KeyValuePair<string,string>>()
-                    ) 
+                    .OrderBy((o) => o.Key) ?? Enumerable.Empty<KeyValuePair<string, string>>()
+                    )
                 is not true)
             {
                 todo.Attribute = data.Attributes;
@@ -271,13 +290,14 @@ namespace TodoTree.PluginInfra
             }
 
             if (todo.Parent?.Id != data.Parent)
-            {  
+            {
                 if (todo.Parent != null)
-                { 
-                    list.Add(todo.Parent.Id);
-                    todo.Parent?.DeleteChild(todo);
+                {
+                    var oldParent = todo.Parent;
+                    oldParent.DeleteChild(todo);
+                    list.Add(TodoConvert.Convert(oldParent).First());
                 }
-                
+
 
                 todo.IsChild = true;
                 if (!todoDictionary.ContainsKey(data.Parent))
@@ -292,28 +312,76 @@ namespace TodoTree.PluginInfra
                         Name = $"temp parent :{data.Parent}",
                         TimeRecords = Enumerable.Empty<TimeRecordData>()
                     });
-                    
+
                 }
 
                 var parent = todoDictionary[data.Parent];
                 parent.AddChild(todo);
 
-                list.Add(data.Parent);
+                list.Add(TodoConvert.Convert(parent).First());
                 result = true;
             }
 
             if (result)
             {
-                list.Add(data.Id);
+                list.Add(data);
             }
-            return list;
+            return new TodoChangeMessage { Upsert = list };
         }
 
-        public void DeleteTodo(string id)
+        public TodoChangeMessage DeleteTodo(IEnumerable<TodoData> todo)
         {
+            var result = new TodoChangeMessage();
+            foreach(var t in todo)
+            {
+                result.Merge(DeleteTodo(t.Id));
+            }
+            return result;
+        }
+
+        public TodoChangeMessage DeleteTodo(string id)
+        {
+            var result = new TodoChangeMessage();
             var todo = todoDictionary[id];
+            if (todo.Parent != null)
+            {
+                var oldParent = todo.Parent;
+                oldParent.DeleteChild(todo);
+                result.Upsert.Concat(new[] { TodoConvert.Convert(oldParent).First() });
+            }
+            else
+            {
+                topTodo.Remove(todo);
+            }
+            if (todo.HasChildren)
+            {
+                foreach (var children in todo.Children)
+                {
+                    result.Merge(DeleteTodoWithoutParent(children.Id));
+                }
+            }
+            result.Delete.Concat(new[] {TodoConvert.Convert(todo).First() });
             todoDictionary.Remove(id);
-            topTodo.Remove(todo);
+
+            return result;
+        }
+
+        private TodoChangeMessage DeleteTodoWithoutParent(string id)
+        {
+            var result = new TodoChangeMessage();
+            
+            var todo = todoDictionary[id];
+            if (todo.HasChildren)
+            {
+                foreach (var children in todo.Children)
+                {
+                    result.Merge(DeleteTodoWithoutParent(children.Id));
+                }
+            }
+            result.Delete = result.Delete.Concat(new[] { TodoConvert.Convert(todo).First() });
+            todoDictionary.Remove(id);
+
+            return result;
         }
 
         public Todo GetTodo(string id)
@@ -338,8 +406,7 @@ namespace TodoTree.PluginInfra
 
     public interface ITodoNotifyReceiver
     {
-        void OnUpdate(IEnumerable<TodoData> data);
-        void OnDelete(IEnumerable<TodoData> data);
+        void OnUpdate(TodoChangeMessage data);
     }
 
     public interface ITodoNotify : IStreamingHub<ITodoNotify, ITodoNotifyReceiver>
@@ -384,15 +451,16 @@ namespace TodoTree.PluginInfra
             }
         }
 
-        public void OnUpdate(IEnumerable<TodoData> data)
+        public void OnUpdate(TodoChangeMessage data)
         {
-            manager.UpsertTodoRange(data);
+            manager.UpsertTodoRange(data.Upsert);
+            manager.DeleteTodo(data.Delete);
             ChangeTodo?.Invoke();
         }
 
         public IEnumerable<Todo> GetTopTodos()
         {
-            return manager.TopTodo;
+            return manager?.TopTodo ?? Enumerable.Empty<Todo>();
         }
 
         public async Task Upsert(Todo todo)
@@ -429,16 +497,6 @@ namespace TodoTree.PluginInfra
         {
             await CheckAndConnect();
             await serviceClient.UnComplete(todo.Id);
-        }
-
-        public void OnDelete(IEnumerable<TodoData> data)
-        {
-            foreach (var todoData in data)
-            {
-                manager.DeleteTodo(todoData.Id);
-            }
-            ChangeTodo?.Invoke();
-
         }
     }
 

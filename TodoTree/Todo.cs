@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LiteDB;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
@@ -60,6 +61,10 @@ namespace TodoTree
             Name = name;
             todoCollection = new TodoCollection(children);
             Attribute = attribute;
+            foreach(var child in todoCollection.Todos)
+            {
+                child.Parent = this;
+            }
         }
 
 
@@ -120,12 +125,12 @@ namespace TodoTree
         {
             if (HasChildren)
             {
-                todoCollection.Add(new Todo("New Todo", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()) { IsChild = true, Parent = this});
+                todoCollection.Add(new Todo("New Todo", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()) { IsChild = true, Parent = this, Id = ObjectId.NewObjectId().ToString()});
             }
             else
             {
                 todoCollection = new TodoCollection(new[]
-                    {new Todo("New Todo", estimateTime, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()){IsChild = true, Parent = this}});
+                    {new Todo("New Todo", estimateTime, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()){IsChild = true, Parent = this, Id = ObjectId.NewObjectId().ToString()}});
                 estimateTime = TimeSpan.Zero;
                 compleated = false;
                 timeRecords = null;

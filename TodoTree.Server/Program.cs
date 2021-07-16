@@ -241,19 +241,6 @@ public class Sample : ImportPlugin
         }
     }
 
-    public enum TodoChangeType
-    {
-        Upsert,
-        Delete
-    }
-
-    public class TodoChangeMessage
-    {
-        public TodoChangeType Type { get; set; }
-        public IEnumerable<TodoData> Data { get; set; }
-    }
-
-
     public class TodoNotifyHub : StreamingHubBase<ITodoNotify, ITodoNotifyReceiver>, ITodoNotify
     {
         IDisposable disposable;
@@ -264,18 +251,7 @@ public class Sample : ImportPlugin
             room = await Group.AddAsync(this.ConnectionId.ToString());
             ISubscriber<TodoChangeMessage> subscriber =
                 this.Context.ServiceProvider.GetService<ISubscriber<TodoChangeMessage>>();
-            disposable = subscriber.Subscribe(mes =>
-            {
-                switch (mes.Type)
-                {
-                    case TodoChangeType.Upsert:
-                        this.BroadcastToSelf(room).OnUpdate(mes.Data);
-                        break;
-                    case TodoChangeType.Delete:
-                        this.BroadcastToSelf(room).OnDelete(mes.Data);
-                        break;
-                };
-            });
+            disposable = subscriber.Subscribe(mes =>this.BroadcastToSelf(room).OnUpdate(mes));
         }
 
         protected override async ValueTask OnDisconnected()
@@ -299,7 +275,9 @@ public class Sample : ImportPlugin
 
         public async UnaryResult<IEnumerable<TodoData>> Get()
         {
-            return TodoConvert.Convert(repository.GetTopTodo());
+            var src = repository.GetTopTodo();
+            var data = TodoConvert.Convert(src);
+            return data;
         }
 
         public async UnaryResult<IEnumerable<TodoData>> Upsert(IEnumerable<TodoData> data)
@@ -311,22 +289,24 @@ public class Sample : ImportPlugin
                 {
                     todoData.Id = ObjectId.NewObjectId().ToString();
                 }
-                changed.AddRange( manager.UpsertTodo(todoData));
-                var result = manager.GetTodo(todoData.Id);
+                changed.AddRange(manager.UpsertTodo(todoData));
+            }
+
+            foreach(var c in changed)
+            {
+                var result = manager.GetTodo(c);
                 repository.AddOrUpdate(result);
             }
 
-
-
             var changedData = changed.Select(id => TodoConvert.Convert(manager.GetTodo(id)).First());
-            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = changedData });
+            publisher.Publish(new TodoChangeMessage {  Upsert = changedData, Delete = Enumerable.Empty<TodoData>() });
             return changedData;
         }
 
         public async UnaryResult<IEnumerable<TodoData>> Delete(string id)
         {
             var todo = manager.GetTodo(id);
-            manager.DeleteTodo(id);
+            var change = manager.DeleteTodo(id);
             repository.Delete(todo);
             var changed = TodoConvert.Convert(manager.TopTodo).ToArray();
             publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Delete, Data = changed });
