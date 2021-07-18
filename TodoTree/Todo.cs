@@ -125,12 +125,12 @@ namespace TodoTree
         {
             if (HasChildren)
             {
-                todoCollection.Add(new Todo("New Todo", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()) { IsChild = true, Parent = this, Id = ObjectId.NewObjectId().ToString()});
+                todoCollection.Add(new Todo($"New Todo{DateTime.Now}", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()) { IsChild = true, Parent = this, Id = ObjectId.NewObjectId().ToString()});
             }
             else
             {
                 todoCollection = new TodoCollection(new[]
-                    {new Todo("New Todo", estimateTime, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()){IsChild = true, Parent = this, Id = ObjectId.NewObjectId().ToString()}});
+                    {new Todo($"New Todo{DateTime.Now}", estimateTime, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()){IsChild = true, Parent = this, Id = ObjectId.NewObjectId().ToString()}});
                 estimateTime = TimeSpan.Zero;
                 compleated = false;
                 timeRecords = null;

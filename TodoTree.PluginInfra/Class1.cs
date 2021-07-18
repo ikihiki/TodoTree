@@ -1,17 +1,12 @@
-﻿using Grpc.Core;
-using Grpc.Net.Client;
+﻿using Grpc.Net.Client;
 using MagicOnion;
 using MagicOnion.Client;
-using MagicOnion.Server;
 using MessagePack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MagicOnion.Server.Hubs;
-using MessagePipe;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace TodoTree.PluginInfra
 {
@@ -109,8 +104,8 @@ namespace TodoTree.PluginInfra
     [MessagePackObject]
     public class TimeRecordData
     {
-        [Key(0)] public DateTime Start { get; set; }
-        [Key(1)] public DateTime? End { get; set; }
+        [Key(0)] public DateTimeOffset Start { get; set; }
+        [Key(1)] public DateTimeOffset? End { get; set; }
     }
 
     [MessagePackObject]
@@ -170,6 +165,23 @@ namespace TodoTree.PluginInfra
                     }
                 }).ToArray();
         }
+
+        public static TodoData ConvertSingle(Todo todo)
+        {
+            return new TodoData
+            {
+                Id = todo.Id,
+                Name = todo.Name,
+                EstimateTime = todo.EstimateTime,
+                Attributes = todo.Attribute,
+                Parent = todo.Parent?.Id,
+                Completed = todo.Compleated,
+                TimeRecords = todo.TimeRecords == null
+                    ? Enumerable.Empty<TimeRecordData>()
+                    : todo.TimeRecords.Select(time => new TimeRecordData()
+                    { Start = time.StartDateTime, End = time.EndDateTime }).ToArray()
+            };
+        }
     }
 
     public class TodoManager
@@ -185,12 +197,22 @@ namespace TodoTree.PluginInfra
 
         public TodoManager(IEnumerable<Todo> todos)
         {
+            AddTodo(todos);
+        }
+
+        private void AddTodo(IEnumerable<Todo> todos)
+        {
             foreach (var todo in todos)
             {
                 todoDictionary.Add(todo.Id, todo);
                 if (!todo.IsChild)
                 {
                     topTodo.Add(todo);
+                }
+
+                if (todo.HasChildren)
+                {
+                    AddTodo(todo.Children);
                 }
             }
         }
@@ -225,6 +247,17 @@ namespace TodoTree.PluginInfra
         private TodoChangeMessage AddTodo(TodoData data)
         {
             var result = new List<TodoData>();
+            if (data.Parent != null && todoDictionary.ContainsKey(data.Parent))
+            {
+                var parent = todoDictionary[data.Parent];
+                var child = parent.Children?.SingleOrDefault(c => c.Id == data.Id);
+                if (child != null)
+                {
+                    todoDictionary.Add(data.Id, child);
+                    return UpdateTodo(data);
+                }
+            }
+
             var timeRecords = data.TimeRecords.Select(time => new TimeRecord(time.Start, time.End)).ToArray();
             var todo = new Todo(data.Name, data.EstimateTime, timeRecords, data.Attributes);
             todo.Id = data.Id;
@@ -254,7 +287,7 @@ namespace TodoTree.PluginInfra
 
                 var parent = todoDictionary[data.Parent];
                 parent.AddChild(todo);
-                result.Add(TodoConvert.Convert(parent).First());
+                result.Add(TodoConvert.ConvertSingle(parent));
             }
             result.Add(data);
             return new TodoChangeMessage { Upsert = result };
@@ -277,6 +310,16 @@ namespace TodoTree.PluginInfra
                 result = true;
             }
 
+            if (todo.TimeRecords?
+                    .OrderBy((o) => o.StartDateTime)
+                    .SequenceEqual(data.TimeRecords?.Select(data => new TimeRecord(data.Start, data.End))
+                            .OrderBy((o) => o.StartDateTime) ?? Enumerable.Empty<TimeRecord>()
+                    )
+                is not true)
+            {
+                todo.RenewTimeRecords(data.TimeRecords.Select(data => new TimeRecord(data.Start, data.End)));
+                result = true;
+            }
             if (todo.Compleated != data.Completed)
             {
                 todo.Compleated = data.Completed;
@@ -289,36 +332,51 @@ namespace TodoTree.PluginInfra
                 result = true;
             }
 
+            if (todo.EstimateTime != data.EstimateTime)
+            {
+                todo.EstimateTime = data.EstimateTime;
+                result = true;
+            }
+
             if (todo.Parent?.Id != data.Parent)
             {
                 if (todo.Parent != null)
                 {
                     var oldParent = todo.Parent;
                     oldParent.DeleteChild(todo);
-                    list.Add(TodoConvert.Convert(oldParent).First());
+                    list.Add(TodoConvert.ConvertSingle(oldParent));
                 }
 
-
-                todo.IsChild = true;
-                if (!todoDictionary.ContainsKey(data.Parent))
+                if (data.Parent != null)
                 {
-                    AddTodo(new TodoData
-                    {
-                        Id = data.Parent,
-                        Parent = null,
-                        Attributes = new Dictionary<string, string>(),
-                        Completed = false,
-                        EstimateTime = TimeSpan.Zero,
-                        Name = $"temp parent :{data.Parent}",
-                        TimeRecords = Enumerable.Empty<TimeRecordData>()
-                    });
 
+                    todo.IsChild = true;
+                    if (!todoDictionary.ContainsKey(data.Parent))
+                    {
+                        AddTodo(new TodoData
+                        {
+                            Id = data.Parent,
+                            Parent = null,
+                            Attributes = new Dictionary<string, string>(),
+                            Completed = false,
+                            EstimateTime = TimeSpan.Zero,
+                            Name = $"temp parent :{data.Parent}",
+                            TimeRecords = Enumerable.Empty<TimeRecordData>()
+                        });
+
+                    }
+
+                    var parent = todoDictionary[data.Parent];
+                    parent.AddChild(todo);
+
+                    if (topTodo.Contains(todo))
+                    {
+                        topTodo.Remove(todo);
+                    }
+
+                    list.Add(TodoConvert.ConvertSingle(parent));
                 }
 
-                var parent = todoDictionary[data.Parent];
-                parent.AddChild(todo);
-
-                list.Add(TodoConvert.Convert(parent).First());
                 result = true;
             }
 
@@ -332,7 +390,7 @@ namespace TodoTree.PluginInfra
         public TodoChangeMessage DeleteTodo(IEnumerable<TodoData> todo)
         {
             var result = new TodoChangeMessage();
-            foreach(var t in todo)
+            foreach (var t in todo)
             {
                 result.Merge(DeleteTodo(t.Id));
             }
@@ -347,7 +405,7 @@ namespace TodoTree.PluginInfra
             {
                 var oldParent = todo.Parent;
                 oldParent.DeleteChild(todo);
-                result.Upsert.Concat(new[] { TodoConvert.Convert(oldParent).First() });
+                result.Upsert = result.Upsert.Concat(new[] { TodoConvert.ConvertSingle(oldParent) });
             }
             else
             {
@@ -360,7 +418,7 @@ namespace TodoTree.PluginInfra
                     result.Merge(DeleteTodoWithoutParent(children.Id));
                 }
             }
-            result.Delete.Concat(new[] {TodoConvert.Convert(todo).First() });
+            result.Delete = result.Delete.Concat(new[] { TodoConvert.ConvertSingle(todo) });
             todoDictionary.Remove(id);
 
             return result;
@@ -369,7 +427,7 @@ namespace TodoTree.PluginInfra
         private TodoChangeMessage DeleteTodoWithoutParent(string id)
         {
             var result = new TodoChangeMessage();
-            
+
             var todo = todoDictionary[id];
             if (todo.HasChildren)
             {
@@ -378,7 +436,7 @@ namespace TodoTree.PluginInfra
                     result.Merge(DeleteTodoWithoutParent(children.Id));
                 }
             }
-            result.Delete = result.Delete.Concat(new[] { TodoConvert.Convert(todo).First() });
+            result.Delete = result.Delete.Concat(new[] { TodoConvert.ConvertSingle(todo) });
             todoDictionary.Remove(id);
 
             return result;
@@ -388,6 +446,13 @@ namespace TodoTree.PluginInfra
         {
             return todoDictionary[id];
         }
+
+
+        public void ApplyChange(TodoChangeMessage data)
+        {
+            UpsertTodoRange(data.Upsert);
+            DeleteTodo(data.Delete);
+        }
     }
 
     public interface ITodoService : IService<ITodoService>
@@ -395,10 +460,6 @@ namespace TodoTree.PluginInfra
         UnaryResult<IEnumerable<TodoData>> Get();
         UnaryResult<IEnumerable<TodoData>> Upsert(IEnumerable<TodoData> data);
         UnaryResult<IEnumerable<TodoData>> Delete(string id);
-        UnaryResult<TodoData> Start(string id);
-        UnaryResult<TodoData> Stop(string id);
-        UnaryResult<TodoData> Complete(string id);
-        UnaryResult<TodoData> UnComplete(string id);
     }
 
 
@@ -463,6 +524,12 @@ namespace TodoTree.PluginInfra
             return manager?.TopTodo ?? Enumerable.Empty<Todo>();
         }
 
+        public async Task<Todo> GetTodoById(string id)
+        {
+            await CheckAndConnect();
+            return manager.GetTodo(id);
+        }
+
         public async Task Upsert(Todo todo)
         {
             await CheckAndConnect();
@@ -478,25 +545,29 @@ namespace TodoTree.PluginInfra
         public async Task Start(Todo todo)
         {
             await CheckAndConnect();
-            await serviceClient.Start(todo.Id);
+            todo.Start();
+            await Upsert(todo);
         }
 
         public async Task Stop(Todo todo)
         {
             await CheckAndConnect();
-            await serviceClient.Stop(todo.Id);
+            todo.Stop();
+            await Upsert(todo);
         }
 
         public async Task Complete(Todo todo)
         {
             await CheckAndConnect();
-            await serviceClient.Complete(todo.Id);
+            todo.Complete();
+            await Upsert(todo);
         }
 
         public async Task Unomplete(Todo todo)
         {
             await CheckAndConnect();
-            await serviceClient.UnComplete(todo.Id);
+            todo.UnComplete();
+            await Upsert(todo);
         }
     }
 

@@ -5,7 +5,7 @@
 @using TodoTree.PluginInfra
 @inject TodoServiceClient TodoRepository
 @inject DialogService DialogService
-
+@implements IDisposable
 @if (todos == null)
 {
     <p><em>Loading...</em></p>
@@ -90,11 +90,24 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await TodoRepository.CheckAndConnect();
         todos = TodoRepository.GetTopTodos().ToArray();
         timer = new Timer(1000);
         timer.AutoReset = true;
         timer.Elapsed += async (sender, args) => await InvokeAsync(() => StateHasChanged());
         timer.Start();
+        TodoRepository.ChangeTodo += Refresh;
+
+    }
+
+    public void Dispose()
+    {
+        TodoRepository.ChangeTodo -= Refresh;
+    }
+
+    async void Refresh()
+    {
+        await InvokeAsync(() => StateHasChanged());
     }
 
     private bool CheckShow(Todo todo)
@@ -104,14 +117,13 @@ else
 
     private async Task Add()
     {
-        await TodoRepository.Upsert(new Todo("TodoItem", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
+        await TodoRepository.Upsert(new Todo($"TodoItem{DateTime.Now}", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
         todos = TodoRepository.GetTopTodos().ToArray();
     }
 
     private async Task ChangeName(Todo todo, string name)
     {
         await TodoRepository.Upsert(todo);
-        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
     public async Task ChangeEstimateTime(Todo todo, DateTime? dateTime)
@@ -126,13 +138,11 @@ else
     private async Task Start(Todo todo)
     {
         await TodoRepository.Start(todo);
-        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
     private async Task Stop(Todo todo)
     {
         await TodoRepository.Stop(todo);
-        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
     private async Task ToggleComplete(bool state, Todo todo){
@@ -144,14 +154,12 @@ else
             await TodoRepository.Complete(todo);
             Console.WriteLine("Complete");
         }
-        todos = TodoRepository.GetTopTodos().ToArray();
     }
 
     protected async Task AddChild(Todo todo)
     {
         todo.AddChild();
         await TodoRepository.Upsert(todo);
-        todos = TodoRepository.GetTopTodos().ToArray();
 
     }
 
@@ -159,14 +167,12 @@ else
     {
         todo.DeleteAllChildren();
         await TodoRepository.Upsert(todo);
-        todos = TodoRepository.GetTopTodos().ToArray();
 
     }
 
     private async Task Delete(Todo todo)
     {
         await TodoRepository.Delete(todo);
-        todos = TodoRepository.GetTopTodos().ToArray();
 
     }
 

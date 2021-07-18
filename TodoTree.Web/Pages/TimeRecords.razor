@@ -1,6 +1,7 @@
 @page "/timerecords/{TodoId}"
+@using TodoTree.PluginInfra
 
-@inject TodoRepository TodoRepository
+@inject TodoServiceClient TodoRepository
 @inject Radzen.DialogService dialogService
 
 <h3>@TodoId</h3>
@@ -19,14 +20,14 @@
     <div>                       
         <RadzenDatePicker TValue="DateTime?" 
             ShowTime="true" Value="record.StartDateTime"
-            Change="(datetime) =>{if(datetime !=null){record.StartDateTime = datetime.Value;}}" />
+            Change="(datetime) =>{if(datetime !=null){record.StartDateTime = new DateTimeOffset(datetime.Value);}}" />
         <span>  ~  </span>
         <RadzenDatePicker TValue="DateTime?" 
             ShowTime="true" Value="record.EndDateTime"
-            Change="(datetime) =>record.EndDateTime = datetime" />
+            Change="(datetime) =>record.EndDateTime = datetime is null? null : new DateTimeOffset(datetime.Value)" />
     </div>
 }
-    <RadzenButton Text="OK"></RadzenButton>
+    <RadzenButton Text="OK" Click="Ok"></RadzenButton>
     <RadzenButton Text="Cancel" Click="()=>dialogService.Close()"></RadzenButton>
 }
 @code {
@@ -35,9 +36,9 @@
     Todo todo;
     List<TimeRecord> timeRecords;
 
-    protected override void OnInitialized()
+    protected override async void OnInitialized()
     {
-        todo = TodoRepository.GeTodoById(TodoId);
+        todo = await TodoRepository.GetTodoById(TodoId);
         if(todo != null && todo.TimeRecords != null){
             timeRecords = new List<TimeRecord>(todo.TimeRecords);
         }
@@ -48,9 +49,9 @@
         timeRecords.Add(new TimeRecord{StartDateTime=DateTime.Now, EndDateTime=DateTime.Now});
     }
 
-    private void Ok(){
+    private async void Ok(){
         todo.RenewTimeRecords(timeRecords);
-        TodoRepository.AddOrUpdate(todo);
+        await TodoRepository.Upsert(todo);
         dialogService.Close();
     }
 }

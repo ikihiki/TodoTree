@@ -23,7 +23,7 @@ namespace TodoTree.Cli
                 {
                     return repository.GetTopTodos().Where(todo => showAll || !todo.Compleated).ToArray();
                 }
-                var (todos, setTodos) = state.CreateState(GetTodos(showAll));
+
                 var (selectedTodo, setSelectedTodo) = state.CreateState<Todo>(null);
                 var builder = new DelegateTreeBuilder<Todo>(todo => showAll ? todo.Children : todo.UncompletedChildren);
                 return
@@ -51,16 +51,14 @@ namespace TodoTree.Cli
                                         selectedTodo.Complete();
                                     }
                                     _ = repository.Upsert(selectedTodo);
-                                    setTodos(GetTodos(showAll));
                                 }),
                                 CheckBox("すべて表示", showAll, val=>
                                 {
                                     setShowAll(val);
-                                    setTodos(GetTodos(val));
                                 }),
                             }),
                             TreeView(
-                                todos.ToArray(),
+                                GetTodos(showAll).ToArray(),
                                 static render =>$"{(render.IsRunning ? '▶' : '⏸')}  {(render.Compleated ? '✔' : '□')} {render.EstimateTime} - { render.RemainingTime } - { render.Name }",
                                 builder,
                                 equalityComparer: TodoIdEqualityComparer.Instance,
@@ -95,7 +93,6 @@ namespace TodoTree.Cli
                                     {
                                         setShowAddWindow(false);
                                         _ = repository.Upsert(new Todo(title, time, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
-                                        setTodos(GetTodos(showAll));
                                     }
                                 ),
                                 x:Pos.At(2),
@@ -621,6 +618,11 @@ namespace TodoTree.Cli
             public override View GetView()
             {
                 return ElementState.GetView();
+            }
+
+            internal void BindEvent(Action changeTodo)
+            {
+                throw new NotImplementedException();
             }
         }
 

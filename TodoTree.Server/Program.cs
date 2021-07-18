@@ -16,6 +16,7 @@ using MagicOnion;
 using MagicOnion.Server;
 using MessagePipe;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using TodoTree;
 using TodoTree.PluginInfra;
 
@@ -260,101 +261,75 @@ public class Sample : ImportPlugin
         }
     }
 
+
+
+
     public class TodoServer : ServiceBase<ITodoService>, ITodoService
     {
         private readonly TodoRepository repository;
-        private readonly TodoManager manager;
         private readonly IPublisher<TodoChangeMessage> publisher;
+        private readonly ILogger logger;
 
-        public TodoServer(TodoRepository repository, IPublisher<TodoChangeMessage> publisher)
+        public TodoServer(TodoRepository repository, IPublisher<TodoChangeMessage> publisher, ILogger<TodoServer> logger)
         {
             this.repository = repository;
             this.publisher = publisher;
-            manager = new TodoManager(repository.GetAllTodo());
+            this.logger = logger;
         }
 
         public async UnaryResult<IEnumerable<TodoData>> Get()
         {
             var src = repository.GetTopTodo();
             var data = TodoConvert.Convert(src);
+            logger.LogInformation("Get data:{data}",data);
+
             return data;
         }
 
         public async UnaryResult<IEnumerable<TodoData>> Upsert(IEnumerable<TodoData> data)
         {
-            var changed = new List<string>();
+            logger.LogInformation("Upsert {data}", data);
+            var change = new TodoChangeMessage();
+            var  manager = new TodoManager(repository.GetTopTodo());
             foreach (var todoData in data)
             {
                 if (todoData.Id == null)
                 {
                     todoData.Id = ObjectId.NewObjectId().ToString();
                 }
-                changed.AddRange(manager.UpsertTodo(todoData));
+                change.Merge(manager.UpsertTodo(todoData));
             }
-
-            foreach(var c in changed)
-            {
-                var result = manager.GetTodo(c);
-                repository.AddOrUpdate(result);
-            }
-
-            var changedData = changed.Select(id => TodoConvert.Convert(manager.GetTodo(id)).First());
-            publisher.Publish(new TodoChangeMessage {  Upsert = changedData, Delete = Enumerable.Empty<TodoData>() });
-            return changedData;
+            ApplyChange(change, manager);
+            publisher.Publish(change);
+            return change.Upsert;
         }
 
         public async UnaryResult<IEnumerable<TodoData>> Delete(string id)
         {
+            logger.LogInformation("Delete {id}", id);
+
+            var manager = new TodoManager(repository.GetTopTodo());
             var todo = manager.GetTodo(id);
             var change = manager.DeleteTodo(id);
             repository.Delete(todo);
             var changed = TodoConvert.Convert(manager.TopTodo).ToArray();
-            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Delete, Data = changed });
+            publisher.Publish(change);
             return changed;
         }
 
-        public async UnaryResult<TodoData> Start(string id)
+        private void ApplyChange(TodoChangeMessage data, TodoManager manager)
         {
-            var todo = manager.GetTodo(id);
-            todo.Start();
-            var changed = TodoConvert.Convert(todo).First();
-            manager.UpsertTodo(changed);
-            repository.AddOrUpdate(todo);
-            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
-            return changed;
+            foreach (var todoData in data.Upsert)
+            {
+                repository.AddOrUpdate(manager.GetTodo(todoData.Id));
+            }
+
+            foreach (var todoData in data.Delete)
+            {
+                var todo = repository.GeTodoById(todoData.Id);
+                repository.Delete(todo);
+            }
         }
 
-        public async UnaryResult<TodoData> Stop(string id)
-        {
-            var todo = manager.GetTodo(id);
-            todo.Stop();
-            var changed = TodoConvert.Convert(todo).First();
-            manager.UpsertTodo(changed);
-            repository.AddOrUpdate(todo);
-            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
-            return changed;
-        }
-
-        public async UnaryResult<TodoData> Complete(string id)
-        {
-            var todo = manager.GetTodo(id);
-            todo.Complete();
-            var changed = TodoConvert.Convert(todo).First();
-            manager.UpsertTodo(changed);
-            repository.AddOrUpdate(todo);
-            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
-            return changed;
-        }
-
-        public async UnaryResult<TodoData> UnComplete(string id)
-        {
-            var todo = manager.GetTodo(id);
-            todo.UnComplete();
-            var changed = TodoConvert.Convert(todo).First();
-            manager.UpsertTodo(changed);
-            repository.AddOrUpdate(todo);
-            publisher.Publish(new TodoChangeMessage { Type = TodoChangeType.Upsert, Data = new[] { changed } });
-            return changed;
-        }
     }
 }

@@ -471,7 +471,6 @@ namespace TestProject1
 
             Assert.Equal(new[] { "1", "2", "3" }, change.Delete.Select(t => t.Id).OrderBy(id => id));
             Assert.Empty(manager.TopTodo);
-
         }
 
         [Fact]
@@ -519,6 +518,178 @@ namespace TestProject1
             Assert.Equal(new[] { "1", "2" }, change.Delete.Select(t => t.Id).OrderBy(id => id));
             Assert.Empty(manager.TopTodo);
         }
+
+        [Fact]
+        public void FantomChild()
+        {
+            var parent = new TodoData()
+            {
+                Id = "1",
+                Parent = null,
+                Attributes = new Dictionary<string, string>(),
+                EstimateTime = TimeSpan.FromSeconds(1),
+                Name = "TestTodo",
+                TimeRecords = new[]
+                {
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
+                },
+                Completed = true
+            };
+
+
+            var manager = new TodoManager();
+            manager.UpsertTodo(parent);
+            var pt = manager.GetTodo(parent.Id);
+            pt.AddChild();
+            manager.UpsertTodoRange(TodoConvert.Convert(pt));
+            Assert.Single(pt.Children);
+        }
+
+
+        [Fact]
+        public void Test()
+        {
+            var man1 = new TodoManager();
+            var man2 = new TodoManager();
+
+            var parent = new TodoData()
+            {
+                Id = "1",
+                Parent = null,
+                Attributes = new Dictionary<string, string>(),
+                EstimateTime = TimeSpan.FromSeconds(1),
+                Name = "TestTodo",
+                TimeRecords = new[]
+                {
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
+                },
+                Completed = true
+            };
+            var c = man1.UpsertTodo(parent);
+            man2.ApplyChange(c);
+
+            var t = man1.TopTodo.First();
+            t.AddChild();
+            c = man2.UpsertTodoRange(TodoConvert.Convert(t));
+            man1.ApplyChange(c);
+            var tc = t.Children.First();
+            tc.AddChild();
+            c = man2.UpsertTodoRange(TodoConvert.Convert(tc));
+            man1.ApplyChange(c);
+            var tgc = tc.Children.First();
+
+            tgc.Name = "Name2";
+            c = man2.UpsertTodoRange(TodoConvert.Convert(tc));
+            man1.ApplyChange(c);
+
+            Assert.Equal("Name2",man1.TopTodo.First().Children.First().Children.First().Name);
+            Assert.Equal(t, t.Children.First().Parent);
+        }
+
+        [Fact]
+        public void Start()
+        {
+            var data = new TodoData()
+            {
+                Id = "1",
+                Parent = null,
+                Attributes = new Dictionary<string, string>(),
+                EstimateTime = TimeSpan.FromSeconds(1),
+                Name = "TestTodo",
+                TimeRecords = new[]
+                {
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
+                },
+                Completed = true
+            };
+
+            var manager = new TodoManager();
+           var changes = manager.UpsertTodo(data);
+           var m2 = new TodoManager();
+           m2.ApplyChange(changes);
+           var todo = m2.GetTodo(data.Id);
+            todo.Start();
+            var change = manager.UpsertTodo(TodoConvert.ConvertSingle(todo));
+            var result = manager.TopTodo.First();
+            Assert.Equal(new[] { "1" }, change.Upsert.Select(t => t.Id).OrderBy(id => id));
+
+            Assert.Equal("1", result.Id);
+            Assert.Equal(2, result.TimeRecords.Count());
+        }
+
+        [Fact]
+        public void AddGrandChild()
+        {
+
+            var grandchild = new TodoData()
+            {
+                Id = "3",
+                Parent = "2",
+                Attributes = new Dictionary<string, string>(),
+                EstimateTime = TimeSpan.FromSeconds(1),
+                Name = "TestTodo",
+                TimeRecords = new[]
+                {
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
+                },
+                Completed = true
+            };
+
+
+            var child = new TodoData()
+            {
+                Id = "2",
+                Parent = "1",
+                Attributes = new Dictionary<string, string>(),
+                EstimateTime = TimeSpan.FromSeconds(1),
+                Name = "TestTodo",
+                TimeRecords = new[]
+                {
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
+                },
+                Completed = true
+            };
+
+            var parent = new TodoData()
+            {
+                Id = "1",
+                Parent = null,
+                Attributes = new Dictionary<string, string>(),
+                EstimateTime = TimeSpan.FromSeconds(1),
+                Name = "TestTodo",
+                TimeRecords = new[]
+                {
+                    new TimeRecordData{
+                        Start = new DateTime(2014, 02, 03, 11, 22, 33),
+                        End = new DateTime(2014, 02, 03, 11, 22, 34)
+                    }
+                },
+                Completed = true
+            };
+
+            var manager = new TodoManager();
+            manager.UpsertTodo(grandchild);
+            manager.UpsertTodo(child);
+            manager.UpsertTodo(parent);
+            
+            Assert.Single(manager.TopTodo);
+        }
+
     }
 
 

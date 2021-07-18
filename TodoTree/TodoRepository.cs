@@ -19,7 +19,7 @@ namespace TodoTree
         public IList<TimeRecord> TimeRecords { get; set; }
         public IList<ObjectId> Childrens { get; set; }
         public bool IsChild { get; set; }
-        public Dictionary<string,string> Attribute { get; set; }
+        public Dictionary<string, string> Attribute { get; set; }
     }
 
     public class TodoRepository : IDisposable
@@ -31,7 +31,7 @@ namespace TodoTree
             var parent = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var path = Path.Combine(parent, "TodoTree");
             Directory.CreateDirectory(path);
-            db = new LiteDatabase(Path.Combine(path ,"todo.db"));
+            db = new LiteDatabase(Path.Combine(path, "todo.db"));
         }
 
         public void Dispose()
@@ -69,7 +69,8 @@ namespace TodoTree
             return todos.Query().ToEnumerable();
         }
 
-        public Todo GeTodoById(string id){
+        public Todo GeTodoById(string id)
+        {
             return GeTodoById(new ObjectId(id));
         }
 
@@ -82,13 +83,13 @@ namespace TodoTree
                 return null;
             }
 
-            if (dto.Childrens?.Count > 0 )
-            {               
-                return new Todo(dto.Name, dto.Childrens.Select(id => GeTodoById(id)).Where(todo => todo != null), dto.Attribute) { Id = dto.Id.ToString(), IsChild = dto.IsChild };
+            if (dto.Childrens?.Count > 0)
+            {
+                return new Todo(dto.Name, dto.Childrens.Select(id => GeTodoById(id)).Where(todo => todo != null), dto.Attribute ?? new Dictionary<string, string>()) { Id = dto.Id.ToString(), IsChild = dto.IsChild };
             }
             else
-            { 
-                return new Todo(dto.Name, dto.EstimateTime, dto.TimeRecords?? Enumerable.Empty<TimeRecord>(),dto.Attribute) { Compleated = dto.Completed, Id = dto.Id.ToString(), IsChild = dto.IsChild };
+            {
+                return new Todo(dto.Name, dto.EstimateTime, dto.TimeRecords ?? Enumerable.Empty<TimeRecord>(), dto.Attribute ?? new Dictionary<string, string>()) { Compleated = dto.Completed, Id = dto.Id.ToString(), IsChild = dto.IsChild };
             }
         }
 

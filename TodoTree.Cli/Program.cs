@@ -15,7 +15,7 @@ namespace TodoTree.Cli
             await repository.Connect();
 
             Application.Init();
-            var top = App1.Body("tst", repository);
+            var top =  App1.Body("tst", repository);
             var state = top.Create();
             Application.Top.Add(state.GetView());
 
