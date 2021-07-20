@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageReference Include="ElectronNET.API" Version="11.5.1" />
     <PackageReference Include="Radzen.Blazor" Version="3.5.3" />
+    <PackageReference Include="Scriban" Version="4.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TodoTree.PluginInfra\TodoTree.PluginInfra.csproj" />

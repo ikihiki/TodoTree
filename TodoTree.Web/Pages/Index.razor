@@ -3,6 +3,7 @@
 @using System.Timers
 @using System.Collections.Specialized
 @using TodoTree.PluginInfra
+@using Scriban;
 @inject TodoServiceClient TodoRepository
 @inject DialogService DialogService
 @implements IDisposable
@@ -20,8 +21,8 @@ else
     <div>
         <RadzenTree Style="width: 100%" Data="showTodo">
             <RadzenTreeLevel TextProperty="@nameof(Todo.Name)"
-                ChildrenProperty="@(showCompleted?nameof(Todo.Children):nameof(Todo.UncompletedChildren))"
-                HasChildren="@(e => ((e as Todo).Children?.Any()??false))">
+                         ChildrenProperty="@(showCompleted?nameof(Todo.Children):nameof(Todo.UncompletedChildren))"
+                         HasChildren="@(e => ((e as Todo).Children?.Any()??false))">
                 <Template>
                     @{
                     var todo = (context.Value as Todo);
@@ -33,8 +34,9 @@ else
                     {
                         <div class="head-padding"></div>
                     }
-                    @if(editable){
-                       <RadzenButton Icon="add_task" Click="() => AddChild(todo)" /> 
+                    @if (editable)
+                    {
+                        <RadzenButton Icon="add_task" Click="() => AddChild(todo)" />
                     }
                     @if (todo.IsRunning)
                     {
@@ -46,27 +48,36 @@ else
                     }
                     <RadzenCheckBox @bind-value="@todo.Compleated" TValue="bool" Change="(state) => ToggleComplete(state, todo)" />
                     <div class="name">
-                        @if(editable){
+                        @if (editable)
+                        {
                             <RadzenTextBox Style="width: 100%" @bind-value="todo.Name" Change="value => ChangeName(todo, value)" />
-                        }else{
-                            @todo.Name
+                        }
+                        else
+                        {
+                            @RenderTitile(todo)
                         }
                     </div>
                     <div class="estimate-time">
-                        @if(editable){
-                            <RadzenDatePicker  Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true"
-                            ShowTime="true" Value="DateTime.Today + todo.EstimateTime"
-                            Change="(datetime) => ChangeEstimateTime(todo, datetime)" />
-                        }else{
+                        @if (editable)
+                        {
+                            <RadzenDatePicker Disabled="todo.HasChildren" TValue="DateTime?" DateFormat="HH:mm" TimeOnly="true"
+                                          ShowTime="true" Value="DateTime.Today + todo.EstimateTime"
+                                          Change="(datetime) => ChangeEstimateTime(todo, datetime)" />
+                        }
+                        else
+                        {
                             @todo.EstimateTime.ToString(@"hh\:mm\:ss")
                         }
                     </div>
                     <span>@todo.RemainingTime.ToString(@"hh\:mm\:ss")</span>
-                    @if(editable){
+                    @if (editable)
+                    {
                         @if (!todo.HasChildren)
                         {
                             <RadzenButton Icon="delete" Click="() => Delete(todo)" />
-                        } else {
+                        }
+                        else
+                        {
                             <RadzenButton Icon="delete_forever" Click="() => DeleteAllChildren(todo)" />
                         }
                     }
@@ -79,7 +90,7 @@ else
 </div>
 }
 
-@code{
+@code {
     private Todo[] todos;
     private Timer timer;
 
@@ -110,6 +121,19 @@ else
         await InvokeAsync(() => StateHasChanged());
     }
 
+    private string RenderTitile(Todo todo)
+    {
+        var template = Template.Parse(todo.Name);
+
+        // Check for any errors
+        if (template.HasErrors)
+        {
+
+            return todo.Name;
+        }
+        return template.Render(todo.Attribute);
+    }
+
     private bool CheckShow(Todo todo)
     {
         return showCompleted || !todo.Compleated;
@@ -117,7 +141,7 @@ else
 
     private async Task Add()
     {
-        await TodoRepository.Upsert(new Todo($"TodoItem{DateTime.Now}", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string,string>()));
+        await TodoRepository.Upsert(new Todo($"TodoItem{DateTime.Now}", TimeSpan.Zero, Enumerable.Empty<TimeRecord>(), new Dictionary<string, string>()));
         todos = TodoRepository.GetTopTodos().ToArray();
     }
 
@@ -145,12 +169,16 @@ else
         await TodoRepository.Stop(todo);
     }
 
-    private async Task ToggleComplete(bool state, Todo todo){
+    private async Task ToggleComplete(bool state, Todo todo)
+    {
         Console.WriteLine("toggle");
-        if(!state){
+        if (!state)
+        {
             await TodoRepository.Unomplete(todo);
             Console.WriteLine("UnComplete");
-        }else{
+        }
+        else
+        {
             await TodoRepository.Complete(todo);
             Console.WriteLine("Complete");
         }
@@ -176,10 +204,11 @@ else
 
     }
 
-    private void OpenTimeRecords(Todo todo){
+    private void OpenTimeRecords(Todo todo)
+    {
         DialogService.Open<TimeRecords>($"Time Record [{todo.Name}]",
                         new Dictionary<string, object>() { { "TodoId", todo.Id } },
-                        new DialogOptions(){ Width = "700px", Height = "530px" });
+                        new DialogOptions() { Width = "700px", Height = "530px" });
     }
 
 }
