@@ -1,4 +1,5 @@
 ﻿using Grpc.Net.Client;
+using LiteDB;
 using MagicOnion;
 using MagicOnion.Client;
 using MessagePack;
@@ -258,7 +259,7 @@ namespace TodoTree.PluginInfra
                 }
             }
 
-            var timeRecords = data.TimeRecords.Select(time => new TimeRecord(time.Start, time.End)).ToArray();
+            var timeRecords = data.TimeRecords == null? new TimeRecord[0] : data.TimeRecords.Select(time => new TimeRecord(time.Start, time.End)).ToArray();
             var todo = new Todo(data.Name, data.EstimateTime, timeRecords, data.Attributes);
             todo.Id = data.Id;
             todo.Compleated = data.Completed;
@@ -478,7 +479,7 @@ namespace TodoTree.PluginInfra
 
 
 
-    public class TodoServiceClient : ITodoNotifyReceiver
+    public class TodoServiceClient : ITodoNotifyReceiver, IAsyncDisposable
     {
         private readonly string address;
 
@@ -536,6 +537,12 @@ namespace TodoTree.PluginInfra
             await serviceClient.Upsert(TodoConvert.Convert(todo));
         }
 
+        public async Task Upsert(IEnumerable<TodoData> todo)
+        {
+            await CheckAndConnect();
+            await serviceClient.Upsert(todo);
+        }
+
         public async Task Delete(Todo todo)
         {
             await CheckAndConnect();
@@ -568,6 +575,18 @@ namespace TodoTree.PluginInfra
             await CheckAndConnect();
             todo.UnComplete();
             await Upsert(todo);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await notifyClient.DisposeAsync();
+            await channel.ShutdownAsync();
+            channel.Dispose();
+        }
+
+        public string CreateNewId()
+        {
+            return ObjectId.NewObjectId().ToString();
         }
     }
 

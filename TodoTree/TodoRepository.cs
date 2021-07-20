@@ -56,7 +56,8 @@ namespace TodoTree
                 Name = todo.Name,
                 TimeRecords = todo.TimeRecords?.ToList(),
                 Id = todo.Id == null ? ObjectId.NewObjectId() : new ObjectId(todo.Id),
-                IsChild = todo.IsChild
+                IsChild = todo.IsChild,
+                Attribute = todo.Attribute
             };
             var todos = db.GetCollection<TodoDto>("todos");
             todos.Upsert(dto);
