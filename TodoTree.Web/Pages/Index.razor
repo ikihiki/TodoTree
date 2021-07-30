@@ -13,12 +13,13 @@
 }
 else
 {
-    <div>
+    <div class="header">
         <RadzenButton Icon="add_task" Click="e=>Add()" />
         <RadzenCheckBox TValue="bool" @bind-Value="showCompleted" />完了済みを表示
         <RadzenCheckBox TValue="bool" @bind-Value="editable" />編集
+        <RadzenCheckBox TValue="bool" @bind-Value="showElapsedTime" />経過時間
     </div>
-    <div>
+    <div class="body">
         <RadzenTree Style="width: 100%" Data="showTodo">
             <RadzenTreeLevel TextProperty="@nameof(Todo.Name)"
                          ChildrenProperty="@(showCompleted?nameof(Todo.Children):nameof(Todo.UncompletedChildren))"
@@ -69,7 +70,13 @@ else
                             @todo.EstimateTime.ToString(@"hh\:mm\:ss")
                         }
                     </div>
-                    <span>@todo.RemainingTime.ToString(@"hh\:mm\:ss")</span>
+                    <span>
+                        @if(showElapsedTime){
+                            @todo.ElapsedTime.ToString(@"hh\:mm\:ss")                          
+                        } else{
+                            @todo.RemainingTime.ToString(@"hh\:mm\:ss")
+                        }
+                    </span>
                     @if (editable)
                     {
                         @if (!todo.HasChildren)
@@ -98,6 +105,7 @@ else
 
     private bool showCompleted;
     private bool editable;
+    private bool showElapsedTime;
 
     protected override async Task OnInitializedAsync()
     {

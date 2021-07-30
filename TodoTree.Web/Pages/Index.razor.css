@@ -17,3 +17,13 @@
 .estimate-time {
   flex: 0 0 75px;
 }
+
+.header {
+  position: fixed;
+ width: 100%;
+ z-index: 10000;
+}
+
+.body{
+  margin-top: 50px;
+}

@@ -55,7 +55,7 @@ namespace TodoTree.Web
                 endpoints.MapFallbackToPage("/_Host");
             });
 
-            //Task.Run(async () => await Electron.WindowManager.CreateWindowAsync());
+            Task.Run(async () => await Electron.WindowManager.CreateWindowAsync());
             Task.Run(async () => await app.ApplicationServices.GetService<TodoServiceClient>()?.Connect());
         }
     }
